@@ -17,185 +17,100 @@ body {
 }
 .card { width: min(480px, 100%); padding: 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
 h1 { margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--muted); }
-.preview {
-  font-size: clamp(3.5rem, 18vw, 5.5rem); font-weight: 700; line-height: 1.1;
-  font-variant-numeric: tabular-nums; letter-spacing: -0.02em; margin-bottom: 20px;
-}
-.row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); }
-input {
-  width: 100px; padding: 10px; font: inherit; font-size: 1.1rem; color: var(--text);
-  background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
-}
+p { margin: 0 0 16px; line-height: 1.5; }
 button {
-  padding: 10px 16px; font: inherit; font-weight: 600; color: var(--text); cursor: pointer;
-  background: transparent; border: 1px solid var(--line); border-radius: 8px;
+  width: 100%; padding: 14px; font: inherit; font-weight: 600; cursor: pointer;
+  background: var(--accent); color: #06231f; border: 1px solid var(--accent); border-radius: 8px;
 }
-button:hover { border-color: var(--muted); }
-button.primary { background: var(--accent); border-color: var(--accent); color: #06231f; min-width: 110px; }
-button.wide { width: 100%; padding: 14px; border-color: var(--accent); color: var(--accent); }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.msg { min-height: 2.6em; margin: 4px 0 0; font-size: .9rem; color: var(--muted); }
-.hint { margin: 0; font-size: .8rem; color: var(--muted); }
-[data-state="warn"] { color: var(--warn); }
-[data-state="danger"], [data-state="done"] { color: var(--danger); }
+.msg { min-height: 2.6em; margin: 14px 0 0; font-size: .9rem; color: var(--muted); }
+
+/* The display is parked off-screen until it goes fullscreen on the extension screen. */
+#display:not(:fullscreen) { position: absolute; left: -9999px; top: 0; width: 1px; height: 1px; overflow: hidden; }
+#display { display: flex; align-items: center; justify-content: center; background: #000; color: #fff; cursor: none; }
+#display[data-state="warn"] { color: var(--warn); }
+#display[data-state="danger"], #display[data-state="done"] { color: var(--danger); }
+#clock {
+  font-size: min(30vw, 70vh); font-weight: 700; line-height: 1;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+}
+#display.long #clock { font-size: min(20vw, 60vh); }
+#display[data-state="done"] #clock { animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: .15; } }
+@media (prefers-reduced-motion: reduce) { #display[data-state="done"] #clock { animation: none; } }
 </style>
 </head>
 <body>
 
 <main class="card">
   <h1>Countdown timer</h1>
-  <div id="preview" class="preview" data-state="">05:00</div>
-
-  <div class="row">
-    <label>Minutes <input id="min" type="number" min="0" max="999" value="5" inputmode="numeric"></label>
-    <label>Seconds <input id="sec" type="number" min="0" max="59" value="0" inputmode="numeric"></label>
-  </div>
-
-  <div class="row" id="presets">
-    <button data-min="1">1 min</button>
-    <button data-min="2">2 min</button>
-    <button data-min="5">5 min</button>
-    <button data-min="10">10 min</button>
-    <button data-min="15">15 min</button>
-    <button data-min="30">30 min</button>
-  </div>
-
-  <div class="row">
-    <button id="toggle" class="primary">Start</button>
-    <button id="reset">Reset</button>
-    <button id="minus">−1 min</button>
-    <button id="plus">+1 min</button>
-  </div>
-
-  <button id="show" class="wide">Show on extension screen</button>
+  <p>One click opens the controls on this screen and sends the countdown to the extension screen. Press Esc to bring this window back.</p>
+  <button id="show">Show on extension screen</button>
   <p id="msg" class="msg" role="status"></p>
-  <p class="hint">Space starts or pauses. R resets.</p>
 </main>
+
+<div id="display" data-state=""><div id="clock">00:00</div></div>
 
 <script>
 const $ = id => document.getElementById(id);
 const channel = new BroadcastChannel("countdown-timer");
-let total = 0, remaining = 0, endAt = 0, running = false, wake = null, displayWin = null;
+let state = { running: false, endAt: 0, remaining: 0, total: 0 }, controlsWin = null;
 
 const pad = n => String(n).padStart(2, "0");
 function fmt(ms) {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  const t = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
   return h ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
 }
-
-// Send the current timer state to the display window.
-function broadcast() { channel.postMessage({ running, endAt, remaining, total }); }
-// A newly opened display asks for the current state.
-channel.onmessage = e => { if (e.data === "hello") broadcast(); };
-
-function readInputs() {
-  const m = Math.max(0, parseInt($("min").value, 10) || 0);
-  const s = Math.max(0, parseInt($("sec").value, 10) || 0);
-  return (m * 60 + s) * 1000;
-}
-function setFromInputs() {
-  total = remaining = readInputs();
-  render(); broadcast();
-}
-
-function render() {
-  const ms = running ? Math.max(0, endAt - Date.now()) : remaining;
+function draw() {
+  const ms = state.running ? Math.max(0, state.endAt - Date.now()) : state.remaining;
   const secs = Math.ceil(ms / 1000);
-  $("preview").textContent = fmt(ms);
-  $("preview").dataset.state = total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
-  $("toggle").textContent = running ? "Pause" : (remaining > 0 && remaining < total ? "Resume" : "Start");
-  if (running && ms <= 0) finish();
+  const text = fmt(ms);
+  $("clock").textContent = text;
+  $("display").classList.toggle("long", text.length > 5);
+  $("display").dataset.state = state.total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
 }
 
-function start() {
-  if (running) return;
-  if (remaining <= 0) setFromInputs();
-  if (remaining <= 0) return;
-  endAt = Date.now() + remaining; // count to a fixed end time so background throttling cannot cause drift
-  running = true;
-  lockScreen(); render(); broadcast();
-}
-function pause() {
-  if (!running) return;
-  remaining = Math.max(0, endAt - Date.now());
-  running = false;
-  unlockScreen(); render(); broadcast();
-}
-function finish() {
-  running = false; remaining = 0;
-  unlockScreen(); render(); broadcast();
-}
-function reset() {
-  running = false;
-  unlockScreen();
-  setFromInputs();
-}
-function adjust(deltaMs) {
-  if (running) endAt = Math.max(Date.now(), endAt + deltaMs);
-  else remaining = Math.max(0, remaining + deltaMs);
-  total = Math.max(total, running ? endAt - Date.now() : remaining);
-  render(); broadcast();
-}
-
-async function lockScreen() {
-  try { wake = await navigator.wakeLock?.request("screen"); } catch (e) {}
-}
-function unlockScreen() {
-  if (wake) { wake.release().catch(() => {}); wake = null; }
-}
-document.addEventListener("visibilitychange", () => {
-  if (running && document.visibilityState === "visible") lockScreen();
-});
-
-// Open the display in its own window on the extension screen. This page stays on the main screen.
-async function showOnExtension() {
-  const msg = $("msg");
-  if (displayWin && !displayWin.closed) { displayWin.focus(); msg.textContent = "The display is already open."; return; }
-  let features = "popup=yes,width=1280,height=720";
-  if ("getScreenDetails" in window) {
-    try {
-      const details = await window.getScreenDetails();
-      const target = details.screens.find(s => s !== details.currentScreen);
-      if (!target) { msg.textContent = "No second screen found. Check the display settings."; return; }
-      // Smaller than the screen on purpose: a full-size popup can open in a maximized state and render blank.
-      // The display goes fullscreen on click anyway.
-      const w = Math.min(960, target.availWidth), h = Math.min(540, target.availHeight);
-      const left = target.availLeft + Math.round((target.availWidth - w) / 2);
-      const top = target.availTop + Math.round((target.availHeight - h) / 2);
-      features = `popup=yes,left=${left},top=${top},width=${w},height=${h}`;
-    } catch (e) {
-      msg.textContent = "Allow window management when the browser asks, then click the button again.";
-      return;
-    }
-  }
-  displayWin = window.open("display.html", "countdown-display", features);
-  msg.textContent = displayWin
-    ? "Display opened. Click once inside it to go fullscreen."
-    : "The browser blocked the pop-up. Allow pop-ups for this site, then click the button again.";
-}
-
-$("toggle").onclick = () => (running ? pause() : start());
-$("reset").onclick = reset;
-$("minus").onclick = () => adjust(-60000);
-$("plus").onclick = () => adjust(60000);
-$("show").onclick = showOnExtension;
-$("presets").onclick = e => {
-  const m = e.target.dataset.min;
-  if (!m) return;
-  $("min").value = m; $("sec").value = 0;
-  reset();
+channel.onmessage = e => {
+  if (e.data === "exit-fullscreen") { if (document.fullscreenElement) document.exitFullscreen(); return; }
+  if (e.data && typeof e.data === "object") { state = e.data; draw(); }
 };
-["min", "sec"].forEach(id => $(id).addEventListener("input", () => { if (!running) setFromInputs(); }));
-document.addEventListener("keydown", e => {
-  if (e.target.tagName === "INPUT") return;
-  if (e.code === "Space") { e.preventDefault(); running ? pause() : start(); }
-  if (e.key.toLowerCase() === "r") reset();
-});
+channel.postMessage("hello"); // ask the controls for the current timer state
+setInterval(draw, 200);
+draw();
 
-setInterval(() => { if (running) render(); }, 200);
-setFromInputs();
+async function show() {
+  const msg = $("msg");
+  if (!("getScreenDetails" in window)) {
+    msg.textContent = "This browser can't choose a screen. Use Chrome or Edge on the projection computer.";
+    return;
+  }
+  let details;
+  try { details = await window.getScreenDetails(); }
+  catch (e) { msg.textContent = "Allow window management when the browser asks, then click the button again."; return; }
+  const target = details.screens.find(sc => sc !== details.currentScreen);
+  if (!target) { msg.textContent = "No second screen found. Check the display settings."; return; }
+
+  // 1. Controls open in their own window on this screen.
+  if (!controlsWin || controlsWin.closed) {
+    const cur = details.currentScreen, w = 540, h = 720;
+    const left = cur.availLeft + 20, top = cur.availTop + 20;
+    controlsWin = window.open("controls.html", "countdown-controls",
+      `popup=yes,left=${left},top=${top},width=${Math.min(w, cur.availWidth)},height=${Math.min(h, cur.availHeight)}`);
+    if (!controlsWin) { msg.textContent = "The browser blocked the controls window. Allow pop-ups for this site, then click the button again."; return; }
+  }
+  // 2. This window goes fullscreen on the extension screen.
+  try {
+    await $("display").requestFullscreen({ screen: target });
+    msg.textContent = "";
+  } catch (e) {
+    msg.textContent = "The controls are open. Click the button once more to send the countdown to the extension screen.";
+  }
+}
+$("show").onclick = show;
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) $("msg").textContent = "";
+});
 </script>
 </body>
 </html>
