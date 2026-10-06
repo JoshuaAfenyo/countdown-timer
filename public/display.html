@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Countdown display</title>
+<style>
+:root { --warn: #ffb020; --danger: #ff5a52; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex; align-items: center; justify-content: center;
+  background: #000; color: #fff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+#clock {
+  font-size: min(30vw, 70vh); font-weight: 700; line-height: 1;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+}
+#clock.long { font-size: min(20vw, 60vh); }
+body[data-state="warn"] { color: var(--warn); }
+body[data-state="danger"], body[data-state="done"] { color: var(--danger); }
+body[data-state="done"] #clock { animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: .15; } }
+@media (prefers-reduced-motion: reduce) { body[data-state="done"] #clock { animation: none; } }
+#hint { position: fixed; bottom: 4vh; left: 0; right: 0; margin: 0; text-align: center; font-size: 1rem; color: #8a93a0; }
+body.fs { cursor: none; }
+body.fs #hint { display: none; }
+</style>
+</head>
+<body data-state="">
+<div id="clock">00:00</div>
+<p id="hint">Click here to send the countdown to the extension screen</p>
+
+<script>
+const channel = new BroadcastChannel("countdown-timer");
+const clock = document.getElementById("clock");
+const hint = document.getElementById("hint");
+let state = { running: false, endAt: 0, remaining: 0, total: 0 };
+
+const pad = n => String(n).padStart(2, "0");
+function fmt(ms) {
+  const t = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
+  return h ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
+}
+function draw() {
+  const ms = state.running ? Math.max(0, state.endAt - Date.now()) : state.remaining;
+  const secs = Math.ceil(ms / 1000);
+  const text = fmt(ms);
+  clock.textContent = text;
+  clock.classList.toggle("long", text.length > 5);
+  document.body.dataset.state = state.total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
+}
+
+channel.onmessage = e => {
+  if (e.data === "close-display") { window.close(); return; }
+  if (e.data && typeof e.data === "object") { state = e.data; draw(); }
+};
+channel.postMessage("hello"); // ask the control page for the current timer state
+setInterval(draw, 200);
+draw();
+
+// One click on the main screen sends this window, fullscreen, to the extension screen.
+async function sendToExtension() {
+  if (document.fullscreenElement) return;
+  try {
+    const details = await window.getScreenDetails();
+    const target = details.screens.find(sc => sc !== details.currentScreen);
+    if (!target) { hint.textContent = "No second screen found. Check the display settings, then click here."; return; }
+    await document.documentElement.requestFullscreen({ screen: target });
+  } catch (e) {
+    hint.textContent = "Couldn't reach the extension screen. Allow window management for this site, then click here again.";
+  }
+}
+document.addEventListener("click", sendToExtension);
+document.addEventListener("fullscreenchange", () => {
+  document.body.classList.toggle("fs", !!document.fullscreenElement);
+});
+</script>
+</body>
+</html>
