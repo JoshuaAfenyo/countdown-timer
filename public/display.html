@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Countdown display</title>
+<style>
+:root { --warn: #ffb020; --danger: #ff5a52; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex; align-items: center; justify-content: center;
+  background: #000; color: #fff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+#clock {
+  font-size: min(30vw, 70vh); font-weight: 700; line-height: 1;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+}
+#clock.long { font-size: min(20vw, 60vh); }
+body[data-state="warn"] { color: var(--warn); }
+body[data-state="danger"] { color: var(--danger); }
+body[data-state="done"] { color: var(--danger); }
+body[data-state="done"] #clock { animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: .15; } }
+@media (prefers-reduced-motion: reduce) { body[data-state="done"] #clock { animation: none; } }
+#hint { position: fixed; bottom: 3vh; left: 0; right: 0; text-align: center; font-size: 1rem; color: #8a93a0; }
+body.fs { cursor: none; }
+body.fs #hint { display: none; }
+</style>
+</head>
+<body data-state="">
+<div id="clock">00:00</div>
+<p id="hint">Click anywhere to go fullscreen</p>
+
+<script>
+const channel = new BroadcastChannel("countdown-timer");
+const clock = document.getElementById("clock");
+let s = { running: false, endAt: 0, remaining: 0, total: 0 };
+
+const pad = n => String(n).padStart(2, "0");
+function fmt(ms) {
+  const t = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
+  return h ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
+}
+function draw() {
+  const ms = s.running ? Math.max(0, s.endAt - Date.now()) : s.remaining;
+  const secs = Math.ceil(ms / 1000);
+  const text = fmt(ms);
+  clock.textContent = text;
+  clock.classList.toggle("long", text.length > 5);
+  document.body.dataset.state = s.total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
+}
+
+channel.onmessage = e => { if (e.data && typeof e.data === "object") { s = e.data; draw(); } };
+channel.postMessage("hello"); // ask the control page for the current state
+setInterval(draw, 200);
+draw();
+
+function goFullscreen() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+}
+document.addEventListener("click", goFullscreen);
+document.addEventListener("keydown", e => { if (e.key.toLowerCase() === "f") goFullscreen(); });
+document.addEventListener("fullscreenchange", () => {
+  document.body.classList.toggle("fs", !!document.fullscreenElement);
+});
+</script>
+</body>
+</html>
