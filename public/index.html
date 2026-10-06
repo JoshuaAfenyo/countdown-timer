@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Countdown timer</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#14181d">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <style>
 :root {
   --bg: #14181d; --panel: #1d232b; --line: #333c48; --text: #eef2f6; --muted: #9aa5b3;
@@ -179,7 +183,7 @@ async function showOnExtension() {
   const w = Math.min(640, cur.availWidth), h = Math.min(360, cur.availHeight);
   const left = cur.availLeft + Math.round((cur.availWidth - w) / 2);
   const top = cur.availTop + Math.round((cur.availHeight - h) / 2);
-  displayWin = window.open("display.html", "countdown-display", `popup=yes,left=${left},top=${top},width=${w},height=${h}`);
+  displayWin = window.open("/display", "countdown-display", `popup=yes,left=${left},top=${top},width=${w},height=${h}`);
   msg.textContent = displayWin
     ? "The display opened on this screen. Click inside it to send it to the extension screen."
     : "The browser blocked the display window. If you just allowed window management, click the button again. Otherwise allow pop-ups for this site.";
@@ -211,6 +215,8 @@ $("splashText").addEventListener("input", () => {
   try { localStorage.setItem("splashText", $("splashText").value); } catch (e) {}
   broadcast();
 });
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 
 setInterval(() => { if (running) render(); }, 200);
 setFromInputs();
