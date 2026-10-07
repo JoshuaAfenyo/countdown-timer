@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Countdown timer</title>
+<script>
+// A phone opening this address belongs on the remote page. Add ?pc to the address to stay here.
+if (matchMedia("(pointer: coarse) and (max-width: 700px)").matches && !location.search.includes("pc")) location.replace("/remote");
+</script>
 <link rel="manifest" href="/manifest.json">
 <link rel="stylesheet" href="/preview.css">
 <meta name="theme-color" content="#14181d">
@@ -105,6 +109,7 @@ button.linkbtn { min-height: 0; padding: 4px 10px; border: none; background: non
         <button id="remoteConnect" style="align-self: flex-end">Connect</button>
       </div>
       <p id="remoteStatus" class="msg" role="status"></p>
+      <p class="hint">Open this on the phone: <b id="remoteUrl"></b> <button id="copyUrl" class="linkbtn">Copy</button></p>
       <p class="hint">Space starts or pauses. R resets. Keep this window open while the display is showing.</p>
     </div>
   </div>
@@ -263,6 +268,10 @@ $("splashText").addEventListener("input", () => {
 function updatePreview() {
   Preview.update({ splash, text: $("splashText").value.trim(), ms: running ? Math.max(0, endAt - Date.now()) : remaining, total });
 }
+$("remoteUrl").textContent = location.origin + "/remote";
+$("copyUrl").onclick = () => {
+  navigator.clipboard?.writeText(location.origin + "/remote").then(() => { $("copyUrl").textContent = "Copied"; }, () => {});
+};
 Preview.mount($("pv"));
 let previewOn = true;
 try { previewOn = localStorage.getItem("previewOn") !== "0"; } catch (e) {}
@@ -335,7 +344,7 @@ function connectRemote() {
   ws.onmessage = ev => {
     if (ev.data === "pong") { clearTimeout(pongTimer); return; }
     let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
-    if (m.type === "ready") { remoteReady = true; wsBackoff = 1000; setRemoteStatus("Phone remote: connected. On the phone, open this site's /remote page."); broadcast(); }
+    if (m.type === "ready") { remoteReady = true; wsBackoff = 1000; setRemoteStatus("Phone remote: connected."); broadcast(); }
     else if (m.type === "hello") broadcast(); // a phone just connected
     else if (m.type === "cmd") handleCmd(m);
     else if (m.type === "denied") {

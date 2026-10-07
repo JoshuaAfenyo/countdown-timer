@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#14181d">
-<title>Timer remote</title>
+<title>Phone remote</title>
 <link rel="stylesheet" href="/preview.css">
 <style>
 :root {
@@ -13,29 +13,33 @@
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-body { margin: 0; min-height: 100vh; padding: 16px; background: var(--bg); color: var(--text); font-family: var(--font); touch-action: manipulation; }
+body { margin: 0; min-height: 100vh; padding: 12px 14px 20px; background: var(--bg); color: var(--text); font-family: var(--font); touch-action: manipulation; }
 main { max-width: 480px; margin: 0 auto; }
-.status { margin: 0 0 14px; font-size: .9rem; color: var(--muted); }
+.status { margin: 0 0 10px; font-size: .9rem; color: var(--muted); }
 .status.ok { color: var(--accent); }
-.time { font-size: clamp(4rem, 24vw, 6.5rem); font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; text-align: center; }
-.mode { margin: 0 0 18px; text-align: center; color: var(--muted); }
+.top { display: grid; grid-template-columns: 1.1fr 1fr; gap: 12px; align-items: center; margin-bottom: 6px; }
+.time { font-size: clamp(2.6rem, 14vw, 4.2rem); font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.time.long { font-size: clamp(1.9rem, 10vw, 3rem); }
+.mode { margin: 0; font-size: .8rem; color: var(--muted); }
+.side .pv-wrap { margin: 0 0 2px; }
 [data-state="warn"] { color: var(--warn); }
 [data-state="danger"], [data-state="done"] { color: var(--danger); }
-.grid { display: grid; gap: 10px; margin-bottom: 10px; }
+.grid { display: grid; gap: 8px; margin-bottom: 8px; }
 .g2 { grid-template-columns: 1fr 1fr; }
 .g3 { grid-template-columns: 1fr 1fr 1fr; }
-button, input {
-  font: inherit; color: var(--text); border-radius: 12px; border: 1px solid var(--line); background: var(--panel);
-}
-button { min-height: 56px; padding: 10px; font-weight: 600; cursor: pointer; }
+button, input { font: inherit; color: var(--text); border-radius: 12px; border: 1px solid var(--line); background: var(--panel); }
+button { min-height: 50px; padding: 8px; font-weight: 600; cursor: pointer; }
 button:active { border-color: var(--muted); }
 button:disabled { opacity: .4; }
-button.primary { min-height: 72px; font-size: 1.3rem; background: var(--accent); border-color: var(--accent); color: #06231f; }
-input { width: 100%; min-height: 52px; padding: 10px 12px; }
+button.primary { min-height: 68px; font-size: 1.3rem; background: var(--accent); border-color: var(--accent); color: #06231f; }
+button.linkbtn { min-height: 0; padding: 2px 0; border: none; background: none; color: var(--muted); text-decoration: underline; font-weight: 400; font-size: .85rem; }
+input { width: 100%; min-height: 50px; padding: 10px 12px; }
 label { display: block; margin: 16px 0 6px; font-size: .9rem; color: var(--muted); }
+details { margin-top: 10px; }
+summary { padding: 10px 0; color: var(--muted); cursor: pointer; }
+details input { margin-bottom: 8px; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .msg { min-height: 1.4em; margin: 8px 0 0; font-size: .9rem; color: var(--muted); }
-button.linkbtn { min-height: 0; padding: 4px 10px; border: none; background: none; color: var(--muted); text-decoration: underline; font-weight: 400; }
 [hidden] { display: none !important; }
 </style>
 </head>
@@ -46,16 +50,22 @@ button.linkbtn { min-height: 0; padding: 4px 10px; border: none; background: non
   <section id="gate" hidden>
     <label for="pin">PIN</label>
     <input id="pin" type="password" autocomplete="off" inputmode="numeric">
-    <div class="grid" style="margin-top:10px"><button id="unlock" class="primary">Unlock</button></div>
+    <div class="grid" style="margin-top: 10px"><button id="unlock" class="primary">Unlock</button></div>
     <p id="gateMsg" class="msg"></p>
   </section>
 
   <section id="panel" hidden>
-    <div id="time" class="time" data-state="">00:00</div>
-    <p id="mode" class="mode"></p>
-    <div class="pv-wrap"><div id="pv"></div></div>
-    <p id="displayInfo" class="mode" style="margin-bottom: 4px"></p>
-    <p style="text-align: center; margin: 0 0 14px"><button id="pvToggle" class="linkbtn">Hide preview</button></p>
+    <div class="top">
+      <div>
+        <div id="time" class="time" data-state="">00:00</div>
+        <p id="mode" class="mode"></p>
+      </div>
+      <div class="side">
+        <div class="pv-wrap"><div id="pv"></div></div>
+        <button id="pvToggle" class="linkbtn">Hide preview</button>
+      </div>
+    </div>
+    <p id="displayInfo" class="mode" style="margin-bottom: 12px"></p>
 
     <div class="grid"><button id="toggle" class="primary">Start</button></div>
     <div class="grid g2">
@@ -68,9 +78,11 @@ button.linkbtn { min-height: 0; padding: 4px 10px; border: none; background: non
     </div>
     <div class="grid g3" id="presets"></div>
 
-    <label for="text">Splash text</label>
-    <input id="text" type="text" maxlength="60" placeholder="Welcome">
-    <div class="grid" style="margin-top:10px"><button id="sendText">Update text</button></div>
+    <details>
+      <summary>Splash text</summary>
+      <input id="text" type="text" maxlength="60" placeholder="Welcome">
+      <div class="grid"><button id="sendText">Update text</button></div>
+    </details>
   </section>
 </main>
 
@@ -96,6 +108,7 @@ function render() {
   const ms = state.running ? Math.max(0, localEnd - Date.now()) : state.remaining;
   const secs = Math.ceil(ms / 1000);
   $("time").textContent = fmt(ms);
+  $("time").classList.toggle("long", fmt(ms).length > 5);
   $("time").dataset.state = state.total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
   $("toggle").textContent = state.running ? "Pause" : (state.remaining > 0 && state.remaining < state.total ? "Resume" : "Start");
   $("splash").textContent = state.splash ? "Show timer" : "Show splash";
