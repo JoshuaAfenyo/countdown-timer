@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14181d">
+<title>Timer remote</title>
+<link rel="stylesheet" href="/preview.css">
+<style>
+:root {
+  --bg: #14181d; --panel: #1d232b; --line: #333c48; --text: #eef2f6; --muted: #9aa5b3;
+  --accent: #3fc1b0; --warn: #ffb020; --danger: #ff5a52;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { margin: 0; min-height: 100vh; padding: 16px; background: var(--bg); color: var(--text); font-family: var(--font); touch-action: manipulation; }
+main { max-width: 480px; margin: 0 auto; }
+.status { margin: 0 0 14px; font-size: .9rem; color: var(--muted); }
+.status.ok { color: var(--accent); }
+.time { font-size: clamp(4rem, 24vw, 6.5rem); font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; text-align: center; }
+.mode { margin: 0 0 18px; text-align: center; color: var(--muted); }
+[data-state="warn"] { color: var(--warn); }
+[data-state="danger"], [data-state="done"] { color: var(--danger); }
+.grid { display: grid; gap: 10px; margin-bottom: 10px; }
+.g2 { grid-template-columns: 1fr 1fr; }
+.g3 { grid-template-columns: 1fr 1fr 1fr; }
+button, input {
+  font: inherit; color: var(--text); border-radius: 12px; border: 1px solid var(--line); background: var(--panel);
+}
+button { min-height: 56px; padding: 10px; font-weight: 600; cursor: pointer; }
+button:active { border-color: var(--muted); }
+button:disabled { opacity: .4; }
+button.primary { min-height: 72px; font-size: 1.3rem; background: var(--accent); border-color: var(--accent); color: #06231f; }
+input { width: 100%; min-height: 52px; padding: 10px 12px; }
+label { display: block; margin: 16px 0 6px; font-size: .9rem; color: var(--muted); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.msg { min-height: 1.4em; margin: 8px 0 0; font-size: .9rem; color: var(--muted); }
+button.linkbtn { min-height: 0; padding: 4px 10px; border: none; background: none; color: var(--muted); text-decoration: underline; font-weight: 400; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <p id="status" class="status" role="status">Connecting…</p>
+
+  <section id="gate" hidden>
+    <label for="pin">PIN</label>
+    <input id="pin" type="password" autocomplete="off" inputmode="numeric">
+    <div class="grid" style="margin-top:10px"><button id="unlock" class="primary">Unlock</button></div>
+    <p id="gateMsg" class="msg"></p>
+  </section>
+
+  <section id="panel" hidden>
+    <div id="time" class="time" data-state="">00:00</div>
+    <p id="mode" class="mode"></p>
+    <div class="pv-wrap"><div id="pv"></div></div>
+    <p id="displayInfo" class="mode" style="margin-bottom: 4px"></p>
+    <p style="text-align: center; margin: 0 0 14px"><button id="pvToggle" class="linkbtn">Hide preview</button></p>
+
+    <div class="grid"><button id="toggle" class="primary">Start</button></div>
+    <div class="grid g2">
+      <button id="reset">Reset</button>
+      <button id="splash">Show splash</button>
+    </div>
+    <div class="grid g2">
+      <button id="minus">−1 min</button>
+      <button id="plus">+1 min</button>
+    </div>
+    <div class="grid g3" id="presets"></div>
+
+    <label for="text">Splash text</label>
+    <input id="text" type="text" maxlength="60" placeholder="Welcome">
+    <div class="grid" style="margin-top:10px"><button id="sendText">Update text</button></div>
+  </section>
+</main>
+
+<script src="/preview.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let ws = null, authed = false, controllerOnline = false, denied = false;
+let state = null, localEnd = 0, backoff = 1000;
+let reconnectTimer, connectTimer, pingTimer, pongTimer;
+
+const pad = n => String(n).padStart(2, "0");
+function fmt(ms) {
+  const t = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+  return h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+function setStatus(text, ok) { $("status").textContent = text; $("status").classList.toggle("ok", !!ok); }
+
+function render() {
+  const live = authed && controllerOnline && state;
+  document.querySelectorAll("#panel button:not(.linkbtn)").forEach(b => { b.disabled = !live; });
+  if (!state) return;
+  const ms = state.running ? Math.max(0, localEnd - Date.now()) : state.remaining;
+  const secs = Math.ceil(ms / 1000);
+  $("time").textContent = fmt(ms);
+  $("time").dataset.state = state.total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
+  $("toggle").textContent = state.running ? "Pause" : (state.remaining > 0 && state.remaining < state.total ? "Resume" : "Start");
+  $("splash").textContent = state.splash ? "Show timer" : "Show splash";
+  $("mode").textContent = "Display is showing the " + (state.splash ? "splash" : "timer");
+  $("displayInfo").textContent = { closed: "Display window: not open", window: "Display window: open, not on the extension screen yet",
+    fullscreen: "Display window: showing on the extension screen" }[state.display || "closed"];
+  Preview.update({ splash: state.splash, text: state.text, ms, total: state.total });
+  if (document.activeElement !== $("text") && $("text").value !== state.text) $("text").value = state.text || "";
+}
+setInterval(render, 250);
+Preview.mount($("pv"));
+let previewOn = true;
+try { previewOn = localStorage.getItem("previewOn") !== "0"; } catch (e) {}
+function syncPreviewToggle() {
+  Preview.setOn(previewOn);
+  $("pvToggle").textContent = previewOn ? "Hide preview" : "Show preview";
+  render();
+}
+$("pvToggle").onclick = () => {
+  previewOn = !previewOn;
+  try { localStorage.setItem("previewOn", previewOn ? "1" : "0"); } catch (e) {}
+  syncPreviewToggle();
+};
+syncPreviewToggle();
+
+function showGate(on) { $("gate").hidden = !on; $("panel").hidden = on; }
+function updateStatus() {
+  if (!authed) return;
+  setStatus(controllerOnline ? "Connected to the computer" : "The computer isn't connected. Open the timer there.", controllerOnline);
+}
+
+function clearTimers() { clearTimeout(connectTimer); clearInterval(pingTimer); clearTimeout(pongTimer); }
+function scheduleReconnect() {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(connect, backoff);
+  backoff = Math.min(backoff * 2, 30000);
+}
+function connect() {
+  const pin = localStorage.getItem("remotePin");
+  if (!pin) { showGate(true); setStatus("Enter the PIN."); return; }
+  if (ws) { ws.onclose = null; try { ws.close(); } catch (e) {} }
+  clearTimers();
+  authed = false;
+  setStatus("Connecting…");
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+  connectTimer = setTimeout(() => { try { ws.close(); } catch (e) {} }, 8000);
+  ws.onopen = () => {
+    clearTimeout(connectTimer);
+    ws.send(JSON.stringify({ type: "auth", role: "remote", pin }));
+    pingTimer = setInterval(() => {
+      if (ws.readyState !== 1) return;
+      ws.send("ping");
+      clearTimeout(pongTimer);
+      pongTimer = setTimeout(() => ws.close(), 10000);
+    }, 25000);
+  };
+  ws.onmessage = ev => {
+    if (ev.data === "pong") { clearTimeout(pongTimer); return; }
+    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (m.type === "ready") { authed = true; controllerOnline = !!m.controller; backoff = 1000; showGate(false); updateStatus(); }
+    else if (m.type === "presence") { controllerOnline = m.controller; updateStatus(); }
+    else if (m.type === "state") { state = m; localEnd = Date.now() + m.remaining; render(); }
+    else if (m.type === "denied") {
+      denied = true;
+      try { localStorage.removeItem("remotePin"); } catch (e) {}
+      showGate(true);
+      $("gateMsg").textContent = m.reason === "locked" ? "Too many wrong PINs. Wait a minute and try again."
+        : m.reason === "unconfigured" ? "The remote isn't set up on the server yet." : "Wrong PIN.";
+      setStatus("Locked");
+    }
+  };
+  ws.onclose = () => {
+    clearTimers();
+    authed = false;
+    if (denied) return;
+    setStatus(navigator.onLine ? "Connection lost. Retrying…" : "No internet. Retrying when it returns…");
+    scheduleReconnect();
+  };
+}
+
+function cmd(name, extra) {
+  if (ws && ws.readyState === 1 && authed) { ws.send(JSON.stringify({ type: "cmd", cmd: name, ...extra })); navigator.vibrate?.(15); }
+}
+
+[1, 2, 5, 10, 15, 30].forEach(n => {
+  const b = document.createElement("button");
+  b.textContent = n + " min";
+  b.onclick = () => cmd("preset", { minutes: n });
+  $("presets").appendChild(b);
+});
+$("toggle").onclick = () => cmd("toggle");
+$("reset").onclick = () => cmd("reset");
+$("minus").onclick = () => cmd("adjust", { delta: -60000 });
+$("plus").onclick = () => cmd("adjust", { delta: 60000 });
+$("splash").onclick = () => cmd("splash", { on: !(state && state.splash) });
+$("sendText").onclick = () => cmd("text", { text: $("text").value.trim() });
+$("unlock").onclick = () => {
+  const pin = $("pin").value.trim();
+  if (!pin) return;
+  try { localStorage.setItem("remotePin", pin); } catch (e) {}
+  denied = false; backoff = 1000; $("gateMsg").textContent = "";
+  connect();
+};
+window.addEventListener("online", () => { if (!denied) { backoff = 1000; connect(); } });
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && !denied && (!ws || ws.readyState !== 1)) { backoff = 1000; connect(); }
+});
+connect();
+</script>
+</body>
+</html>

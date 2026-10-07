@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Countdown timer</title>
 <link rel="manifest" href="/manifest.json">
+<link rel="stylesheet" href="/preview.css">
 <meta name="theme-color" content="#14181d">
 <link rel="icon" href="/icon-192.png">
 <link rel="apple-touch-icon" href="/icon-192.png">
@@ -31,7 +32,7 @@ input {
   width: 100px; padding: 10px; font: inherit; font-size: 1.1rem; color: var(--text);
   background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
 }
-input[type="text"] { width: 100%; }
+input[type="text"], input[type="password"] { width: 100%; }
 label.grow { flex: 1; }
 button {
   padding: 10px 16px; font: inherit; font-weight: 600; color: var(--text); cursor: pointer;
@@ -45,6 +46,7 @@ button.wide { width: 100%; padding: 14px; border-color: var(--accent); color: va
 .hint { margin: 0; font-size: .8rem; color: var(--muted); }
 [data-state="warn"] { color: var(--warn); }
 [data-state="danger"], [data-state="done"] { color: var(--danger); }
+button.linkbtn { min-height: 0; padding: 4px 10px; border: none; background: none; color: var(--muted); text-decoration: underline; font-weight: 400; }
 </style>
 </head>
 <body>
@@ -52,6 +54,8 @@ button.wide { width: 100%; padding: 14px; border-color: var(--accent); color: va
 <main class="card">
   <h1>Countdown timer</h1>
   <div id="preview" class="preview" data-state="">05:00</div>
+  <div class="pv-wrap"><div id="pv"></div></div>
+  <p style="margin: -6px 0 14px"><button id="pvToggle" class="linkbtn">Hide preview</button></p>
 
   <div class="row">
     <label>Minutes <input id="min" type="number" min="0" max="999" value="5" inputmode="numeric"></label>
@@ -82,11 +86,21 @@ button.wide { width: 100%; padding: 14px; border-color: var(--accent); color: va
   <div class="row"><button id="splash">Show timer on display</button></div>
 
   <button id="show" class="wide">Show on extension screen</button>
+  <p id="displayStatus" class="hint" style="margin-top: 10px">Display: not open</p>
   <p id="msg" class="msg" role="status"></p>
   <div class="row"><button id="closefs">Close display</button></div>
+
+  <div class="row">
+    <label class="grow">Phone remote PIN
+      <input id="remotePin" type="password" autocomplete="off" placeholder="PIN">
+    </label>
+    <button id="remoteConnect" style="align-self: flex-end">Connect</button>
+  </div>
+  <p id="remoteStatus" class="msg" role="status"></p>
   <p class="hint">Space starts or pauses. R resets. Keep this window open while the display is showing.</p>
 </main>
 
+<script src="/preview.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const channel = new BroadcastChannel("countdown-timer");
@@ -100,9 +114,27 @@ function fmt(ms) {
 }
 
 // Send the current timer state to the display window.
-function broadcast() { channel.postMessage({ running, endAt, remaining, total, splash, text: $("splashText").value.trim() }); }
+function broadcast() {
+  channel.postMessage({ running, endAt, remaining, total, splash, text: $("splashText").value.trim() });
+  updatePreview();
+  pushRemote();
+}
 // A newly opened display asks for the current state.
-channel.onmessage = e => { if (e.data === "hello") broadcast(); };
+let lastAlive = 0, displayFs = false, displayState = "closed";
+channel.onmessage = e => {
+  if (e.data === "hello") broadcast();
+  else if (e.data && e.data.type === "alive") { lastAlive = Date.now(); displayFs = !!e.data.fs; checkDisplay(); }
+  else if (e.data && e.data.type === "bye") { lastAlive = 0; checkDisplay(); } // the display window was closed
+};
+// The display window sends a heartbeat every 2 seconds. No heartbeat for 5 seconds means it is closed.
+function checkDisplay() {
+  const s = Date.now() - lastAlive > 5000 ? "closed" : displayFs ? "fullscreen" : "window";
+  if (s === displayState) return;
+  displayState = s;
+  $("displayStatus").textContent = "Display: " + (s === "closed" ? "not open" : s === "window" ? "open, not on the extension screen yet" : "showing on the extension screen");
+  pushRemote();
+}
+setInterval(checkDisplay, 2000);
 
 function readInputs() {
   const m = Math.max(0, parseInt($("min").value, 10) || 0);
@@ -118,6 +150,7 @@ function render() {
   const ms = running ? Math.max(0, endAt - Date.now()) : remaining;
   const secs = Math.ceil(ms / 1000);
   $("preview").textContent = fmt(ms);
+  updatePreview();
   $("preview").dataset.state = total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
   $("toggle").textContent = running ? "Pause" : (remaining > 0 && remaining < total ? "Resume" : "Start");
   if (running && ms <= 0) finish();
@@ -215,6 +248,112 @@ $("splashText").addEventListener("input", () => {
   try { localStorage.setItem("splashText", $("splashText").value); } catch (e) {}
   broadcast();
 });
+
+// ---- Preview of what the display shows ----
+function updatePreview() {
+  Preview.update({ splash, text: $("splashText").value.trim(), ms: running ? Math.max(0, endAt - Date.now()) : remaining, total });
+}
+Preview.mount($("pv"));
+let previewOn = true;
+try { previewOn = localStorage.getItem("previewOn") !== "0"; } catch (e) {}
+function syncPreviewToggle() {
+  Preview.setOn(previewOn);
+  $("pvToggle").textContent = previewOn ? "Hide preview" : "Show preview";
+  updatePreview();
+}
+$("pvToggle").onclick = () => {
+  previewOn = !previewOn;
+  try { localStorage.setItem("previewOn", previewOn ? "1" : "0"); } catch (e) {}
+  syncPreviewToggle();
+};
+syncPreviewToggle();
+
+// ---- Phone remote: connects to the relay when there is internet; the timer works the same without it ----
+let ws = null, remoteReady = false, remoteDenied = false, remoteReplaced = false, wsBackoff = 1000;
+let wsTimer, connectTimer, pingTimer, pongTimer;
+const setRemoteStatus = text => { $("remoteStatus").textContent = text; };
+
+function pushRemote() {
+  if (!ws || ws.readyState !== 1 || !remoteReady) return;
+  ws.send(JSON.stringify({
+    type: "state", running, total, splash, display: displayState, text: $("splashText").value.trim(),
+    remaining: running ? Math.max(0, endAt - Date.now()) : remaining // time left now, so the phone's clock doesn't matter
+  }));
+}
+
+function handleCmd(m) {
+  switch (m.cmd) {
+    case "toggle": running ? pause() : start(); break;
+    case "reset": reset(); break;
+    case "adjust": { const d = Number(m.delta); if (Math.abs(d) <= 600000) adjust(d); break; }
+    case "preset": { const n = parseInt(m.minutes, 10); if (n >= 1 && n <= 999) { $("min").value = n; $("sec").value = 0; reset(); } break; }
+    case "splash": splash = !!m.on; syncSplash(); broadcast(); break;
+    case "text":
+      $("splashText").value = String(m.text || "").slice(0, 60);
+      try { localStorage.setItem("splashText", $("splashText").value); } catch (e) {}
+      broadcast(); break;
+  }
+}
+
+function clearRemoteTimers() { clearTimeout(connectTimer); clearInterval(pingTimer); clearTimeout(pongTimer); }
+function scheduleRemote() {
+  clearTimeout(wsTimer);
+  wsTimer = setTimeout(connectRemote, wsBackoff);
+  wsBackoff = Math.min(wsBackoff * 2, 30000);
+}
+function connectRemote() {
+  let pin = "";
+  try { pin = localStorage.getItem("remotePin") || ""; } catch (e) {}
+  if (!pin) { setRemoteStatus("Enter a PIN to turn on the phone remote."); return; }
+  if (!navigator.onLine) { setRemoteStatus("Phone remote: no internet. Use this page directly."); scheduleRemote(); return; }
+  if (ws) { ws.onclose = null; try { ws.close(); } catch (e) {} }
+  clearRemoteTimers();
+  remoteReady = false;
+  setRemoteStatus("Phone remote: connecting…");
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+  connectTimer = setTimeout(() => { try { ws.close(); } catch (e) {} }, 8000);
+  ws.onopen = () => {
+    clearTimeout(connectTimer);
+    ws.send(JSON.stringify({ type: "auth", role: "controller", pin }));
+    pingTimer = setInterval(() => {
+      if (ws.readyState !== 1) return;
+      ws.send("ping");
+      clearTimeout(pongTimer);
+      pongTimer = setTimeout(() => ws.close(), 10000);
+    }, 25000);
+  };
+  ws.onmessage = ev => {
+    if (ev.data === "pong") { clearTimeout(pongTimer); return; }
+    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (m.type === "ready") { remoteReady = true; wsBackoff = 1000; setRemoteStatus("Phone remote: connected. On the phone, open this site's /remote page."); broadcast(); }
+    else if (m.type === "hello") broadcast(); // a phone just connected
+    else if (m.type === "cmd") handleCmd(m);
+    else if (m.type === "denied") {
+      remoteDenied = true;
+      setRemoteStatus(m.reason === "locked" ? "Too many wrong PINs. Wait a minute, then click Connect."
+        : m.reason === "unconfigured" ? "The remote isn't set up on the server yet (no PIN secret)." : "Wrong PIN.");
+    }
+  };
+  ws.onclose = e => {
+    clearRemoteTimers();
+    remoteReady = false;
+    if (remoteDenied) return;
+    if (e.code === 4000) { remoteReplaced = true; setRemoteStatus("Phone remote: another control page took over."); return; }
+    setRemoteStatus("Phone remote: offline. Retrying…");
+    scheduleRemote();
+  };
+}
+try { $("remotePin").value = localStorage.getItem("remotePin") || ""; } catch (e) {}
+$("remoteConnect").onclick = () => {
+  const pin = $("remotePin").value.trim();
+  if (!pin) { setRemoteStatus("Enter a PIN first."); return; }
+  try { localStorage.setItem("remotePin", pin); } catch (e) {}
+  remoteDenied = false; remoteReplaced = false; wsBackoff = 1000;
+  connectRemote();
+};
+window.addEventListener("online", () => { if (!remoteDenied && !remoteReplaced) { wsBackoff = 1000; connectRemote(); } });
+window.addEventListener("offline", () => setRemoteStatus("Phone remote: no internet. Use this page directly."));
+connectRemote();
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 

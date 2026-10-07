@@ -1,0 +1,27 @@
+/* Miniature copy of the display. Everything is sized relative to the box (cq units), so it scales to any width. */
+.pv-wrap { margin: 0 0 14px; }
+.pv {
+  position: relative; container-type: size; aspect-ratio: 16 / 9; width: 100%; overflow: hidden;
+  border-radius: 10px; border: 1px solid var(--line, #333c48); background: #000; color: #fff;
+}
+@media (prefers-reduced-motion: no-preference) { .pv { --pv-slow: 1; } }
+@media (prefers-reduced-motion: reduce) { .pv { --pv-slow: 3; } }
+.pv-splash, .pv-clock { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.pv[data-mode="splash"] .pv-clock, .pv[data-mode="timer"] .pv-splash { display: none; }
+.pv-splash { background: linear-gradient(165deg, #060a15 0%, #0c1a2d 100%); }
+.pv-glow { position: absolute; width: 85cqmax; height: 85cqmax; border-radius: 50%; will-change: transform; }
+.pv-glow.g1 { left: -30cqmax; top: -35cqmax; background: radial-gradient(circle, rgba(236,184,108,.50) 0%, transparent 62%); animation: pv-a calc(43s * var(--pv-slow, 1)) ease-in-out infinite alternate; }
+.pv-glow.g2 { right: -35cqmax; bottom: -40cqmax; background: radial-gradient(circle, rgba(40,150,160,.50) 0%, transparent 62%); animation: pv-b calc(59s * var(--pv-slow, 1)) ease-in-out infinite alternate; }
+.pv-glow.g3 { left: 15cqmax; bottom: -55cqmax; background: radial-gradient(circle, rgba(150,92,172,.38) 0%, transparent 62%); animation: pv-c calc(71s * var(--pv-slow, 1)) ease-in-out infinite alternate; }
+.pv-glow.g4 { width: 50cqmax; height: 50cqmax; right: 5cqmax; top: -25cqmax; background: radial-gradient(circle, rgba(255,222,176,.28) 0%, transparent 65%); animation: pv-d calc(31s * var(--pv-slow, 1)) ease-in-out infinite alternate; }
+@keyframes pv-a { to { transform: translate(60cqmax, 45cqmax) scale(1.2); } }
+@keyframes pv-b { to { transform: translate(-55cqmax, -50cqmax) scale(1.3); } }
+@keyframes pv-c { to { transform: translate(40cqmax, -60cqmax) scale(.85); } }
+@keyframes pv-d { to { transform: translate(-45cqmax, 55cqmax) scale(1.35); } }
+.pv-text { position: relative; margin: 0; padding: 0 6cqw; text-align: center; font-size: min(9cqw, 14cqh); font-weight: 300; letter-spacing: .02em; line-height: 1.15; text-shadow: 0 0 20px rgba(0,0,0,.35); }
+.pv-clock { font-size: min(30cqw, 70cqh); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.pv-clock.long { font-size: min(20cqw, 60cqh); }
+.pv[data-state="warn"] .pv-clock { color: var(--warn, #ffb020); }
+.pv[data-state="danger"] .pv-clock, .pv[data-state="done"] .pv-clock { color: var(--danger, #ff5a52); }
+.pv[data-state="done"] .pv-clock { animation: pv-blink 1s steps(1) infinite; }
+@keyframes pv-blink { 50% { opacity: .15; } }
