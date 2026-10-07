@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Countdown display</title>
+<link rel="stylesheet" href="/preview.css">
 <style>
 :root { --warn: #ffb020; --danger: #ff5a52; --slow: 1; }
 @media (prefers-reduced-motion: reduce) { :root { --slow: 3; } } /* slower, not frozen */
@@ -46,8 +47,7 @@ body[data-mode="splash"] #clock, body[data-mode="timer"] #splash { display: none
 @keyframes drift-c { to { transform: translate(40vmax, -60vmax) scale(.85); } }
 @keyframes drift-d { to { transform: translate(-45vmax, 55vmax) scale(1.35); } }
 #splashText {
-  position: relative; margin: 0; padding: 0 6vw; text-align: center; color: #fff;
-  font-size: min(9vw, 14vh); font-weight: 300; letter-spacing: .02em; line-height: 1.15;
+  position: relative; color: #fff; font-size: calc(min(9vw, 14vh) * var(--k, 1)); font-weight: 700; letter-spacing: .02em; line-height: 1.15;
   text-shadow: 0 0 40px rgba(0, 0, 0, .35); animation: rise 2.4s ease-out both;
 }
 @keyframes rise { from { opacity: 0; transform: translateY(1.5vh); } }
@@ -61,16 +61,18 @@ body.fs #hint { display: none; }
 
 <div id="splash" aria-hidden="true">
   <i class="glow g1"></i><i class="glow g2"></i><i class="glow g3"></i><i class="glow g4"></i>
-  <p id="splashText"></p>
+  <div id="splashText" class="st"><div class="st-track"><span class="st-item"></span></div></div>
 </div>
 <div id="clock">00:00</div>
 <p id="hint">Click here to send the display to the extension screen</p>
 
+<script src="/preview.js"></script>
 <script>
 const channel = new BroadcastChannel("countdown-timer");
 const clock = document.getElementById("clock");
 const hint = document.getElementById("hint");
 const splashText = document.getElementById("splashText");
+SplashText.attach(splashText);
 let state = { running: false, endAt: 0, remaining: 0, total: 0, splash: true, text: "" };
 
 const pad = n => String(n).padStart(2, "0");
@@ -82,7 +84,8 @@ function fmt(ms) {
 function draw() {
   document.body.dataset.mode = state.splash ? "splash" : "timer";
   const label = state.text || "";
-  if (splashText.textContent !== label) splashText.textContent = label;
+  SplashText.set(splashText, label);
+  document.documentElement.style.setProperty("--k", (state.size || 100) / 100);
   if (state.splash) return;
   const ms = state.running ? Math.max(0, state.endAt - Date.now()) : state.remaining;
   const secs = Math.ceil(ms / 1000);

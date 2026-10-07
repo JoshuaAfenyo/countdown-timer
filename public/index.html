@@ -90,6 +90,11 @@ button.linkbtn { min-height: 0; padding: 4px 10px; border: none; background: non
           <input id="splashText" type="text" maxlength="60" placeholder="Welcome">
         </label>
       </div>
+      <div class="row" style="align-items: center">
+        <span class="hint" style="margin: 0">Text size</span>
+        <button id="sizeMinus">A−</button><button id="sizePlus">A+</button>
+        <span id="sizeVal" class="hint" style="margin: 0">100%</span>
+      </div>
       <div class="row"><button id="splash">Show timer on display</button></div>
     </div>
 
@@ -128,9 +133,17 @@ function fmt(ms) {
   return h ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
 }
 
+let textSize = 100; // splash text size in percent
+try { textSize = Math.min(300, Math.max(40, parseInt(localStorage.getItem("splashSize"), 10) || 100)); } catch (e) {}
+function setSize(p) {
+  textSize = Math.min(300, Math.max(40, Math.round(p)));
+  $("sizeVal").textContent = textSize + "%";
+  try { localStorage.setItem("splashSize", textSize); } catch (e) {}
+  broadcast();
+}
 // Send the current timer state to the display window.
 function broadcast() {
-  channel.postMessage({ running, endAt, remaining, total, splash, text: $("splashText").value.trim() });
+  channel.postMessage({ running, endAt, remaining, total, splash, size: textSize, text: $("splashText").value.trim() });
   updatePreview();
   pushRemote();
 }
@@ -257,6 +270,9 @@ document.addEventListener("keydown", e => {
 });
 
 function syncSplash() { $("splash").textContent = splash ? "Show timer on display" : "Show splash on display"; }
+$("sizeVal").textContent = textSize + "%";
+$("sizeMinus").onclick = () => setSize(textSize - 10);
+$("sizePlus").onclick = () => setSize(textSize + 10);
 $("splash").onclick = () => { splash = !splash; syncSplash(); broadcast(); };
 try { $("splashText").value = localStorage.getItem("splashText") || ""; } catch (e) {}
 $("splashText").addEventListener("input", () => {
@@ -266,7 +282,7 @@ $("splashText").addEventListener("input", () => {
 
 // ---- Preview of what the display shows ----
 function updatePreview() {
-  Preview.update({ splash, text: $("splashText").value.trim(), ms: running ? Math.max(0, endAt - Date.now()) : remaining, total });
+  Preview.update({ splash, text: $("splashText").value.trim(), ms: running ? Math.max(0, endAt - Date.now()) : remaining, total, size: textSize });
 }
 $("remoteUrl").textContent = location.origin + "/remote";
 $("copyUrl").onclick = () => {
@@ -295,7 +311,7 @@ const setRemoteStatus = text => { $("remoteStatus").textContent = text; };
 function pushRemote() {
   if (!ws || ws.readyState !== 1 || !remoteReady) return;
   ws.send(JSON.stringify({
-    type: "state", running, total, splash, display: displayState, text: $("splashText").value.trim(),
+    type: "state", running, total, splash, size: textSize, display: displayState, text: $("splashText").value.trim(),
     remaining: running ? Math.max(0, endAt - Date.now()) : remaining // time left now, so the phone's clock doesn't matter
   }));
 }
@@ -306,6 +322,7 @@ function handleCmd(m) {
     case "reset": reset(); break;
     case "adjust": { const d = Number(m.delta); if (Math.abs(d) <= 600000) adjust(d); break; }
     case "preset": { const n = parseInt(m.minutes, 10); if (n >= 1 && n <= 999) { $("min").value = n; $("sec").value = 0; reset(); } break; }
+    case "size": { const d = Number(m.delta); if (Math.abs(d) <= 50) setSize(textSize + d); break; }
     case "splash": splash = !!m.on; syncSplash(); broadcast(); break;
     case "text":
       $("splashText").value = String(m.text || "").slice(0, 60);

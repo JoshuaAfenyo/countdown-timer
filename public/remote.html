@@ -82,6 +82,11 @@ details input { margin-bottom: 8px; }
       <summary>Splash text</summary>
       <input id="text" type="text" maxlength="60" placeholder="Welcome">
       <div class="grid"><button id="sendText">Update text</button></div>
+      <div class="grid g3" style="align-items: center">
+        <button id="sizeMinus">A−</button>
+        <div id="sizeVal" style="text-align: center; color: var(--muted)">100%</div>
+        <button id="sizePlus">A+</button>
+      </div>
     </details>
   </section>
 </main>
@@ -115,7 +120,8 @@ function render() {
   $("mode").textContent = "Display is showing the " + (state.splash ? "splash" : "timer");
   $("displayInfo").textContent = { closed: "Display window: not open", window: "Display window: open, not on the extension screen yet",
     fullscreen: "Display window: showing on the extension screen" }[state.display || "closed"];
-  Preview.update({ splash: state.splash, text: state.text, ms, total: state.total });
+  $("sizeVal").textContent = (state.size || 100) + "%";
+  Preview.update({ splash: state.splash, text: state.text, ms, total: state.total, size: state.size });
   if (document.activeElement !== $("text") && $("text").value !== state.text) $("text").value = state.text || "";
 }
 setInterval(render, 250);
@@ -204,6 +210,8 @@ $("reset").onclick = () => cmd("reset");
 $("minus").onclick = () => cmd("adjust", { delta: -60000 });
 $("plus").onclick = () => cmd("adjust", { delta: 60000 });
 $("splash").onclick = () => cmd("splash", { on: !(state && state.splash) });
+$("sizeMinus").onclick = () => cmd("size", { delta: -10 });
+$("sizePlus").onclick = () => cmd("size", { delta: 10 });
 $("sendText").onclick = () => cmd("text", { text: $("text").value.trim() });
 $("unlock").onclick = () => {
   const pin = $("pin").value.trim();
