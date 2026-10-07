@@ -20,7 +20,7 @@ body {
   margin: 0; min-height: 100vh; padding: 24px; display: grid; place-items: center;
   background: var(--bg); color: var(--text); font-family: var(--font);
 }
-.card { width: min(480px, 100%); padding: 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+.card { width: min(900px, 100%); padding: 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
 h1 { margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--muted); }
 .preview {
   font-size: clamp(3.5rem, 18vw, 5.5rem); font-weight: 700; line-height: 1.1;
@@ -47,57 +47,67 @@ button.wide { width: 100%; padding: 14px; border-color: var(--accent); color: va
 [data-state="warn"] { color: var(--warn); }
 [data-state="danger"], [data-state="done"] { color: var(--danger); }
 button.linkbtn { min-height: 0; padding: 4px 10px; border: none; background: none; color: var(--muted); text-decoration: underline; font-weight: 400; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+.col { min-width: 0; }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr; gap: 0; } }
 </style>
 </head>
 <body>
 
 <main class="card">
   <h1>Countdown timer</h1>
-  <div id="preview" class="preview" data-state="">05:00</div>
-  <div class="pv-wrap"><div id="pv"></div></div>
-  <p style="margin: -6px 0 14px"><button id="pvToggle" class="linkbtn">Hide preview</button></p>
+  <div class="cols">
+    <div class="col">
+      <div id="preview" class="preview" data-state="">05:00</div>
 
-  <div class="row">
-    <label>Minutes <input id="min" type="number" min="0" max="999" value="5" inputmode="numeric"></label>
-    <label>Seconds <input id="sec" type="number" min="0" max="59" value="0" inputmode="numeric"></label>
+      <div class="row">
+        <label>Minutes <input id="min" type="number" min="0" max="999" value="5" inputmode="numeric"></label>
+        <label>Seconds <input id="sec" type="number" min="0" max="59" value="0" inputmode="numeric"></label>
+      </div>
+
+      <div class="row" id="presets">
+        <button data-min="1">1 min</button>
+        <button data-min="2">2 min</button>
+        <button data-min="5">5 min</button>
+        <button data-min="10">10 min</button>
+        <button data-min="15">15 min</button>
+        <button data-min="30">30 min</button>
+      </div>
+
+      <div class="row">
+        <button id="toggle" class="primary">Start</button>
+        <button id="reset">Reset</button>
+        <button id="minus">−1 min</button>
+        <button id="plus">+1 min</button>
+      </div>
+
+      <div class="row">
+        <label class="grow">Splash text (optional)
+          <input id="splashText" type="text" maxlength="60" placeholder="Welcome">
+        </label>
+      </div>
+      <div class="row"><button id="splash">Show timer on display</button></div>
+    </div>
+
+    <div class="col">
+      <div class="pv-wrap"><div id="pv"></div></div>
+      <p style="margin: -6px 0 14px"><button id="pvToggle" class="linkbtn">Hide preview</button></p>
+
+      <button id="show" class="wide">Show on extension screen</button>
+      <p id="displayStatus" class="hint" style="margin-top: 10px">Display: not open</p>
+      <p id="msg" class="msg" role="status"></p>
+      <div class="row"><button id="closefs">Close display</button></div>
+
+      <div class="row">
+        <label class="grow">Phone remote PIN
+          <input id="remotePin" type="password" autocomplete="off" placeholder="PIN">
+        </label>
+        <button id="remoteConnect" style="align-self: flex-end">Connect</button>
+      </div>
+      <p id="remoteStatus" class="msg" role="status"></p>
+      <p class="hint">Space starts or pauses. R resets. Keep this window open while the display is showing.</p>
+    </div>
   </div>
-
-  <div class="row" id="presets">
-    <button data-min="1">1 min</button>
-    <button data-min="2">2 min</button>
-    <button data-min="5">5 min</button>
-    <button data-min="10">10 min</button>
-    <button data-min="15">15 min</button>
-    <button data-min="30">30 min</button>
-  </div>
-
-  <div class="row">
-    <button id="toggle" class="primary">Start</button>
-    <button id="reset">Reset</button>
-    <button id="minus">−1 min</button>
-    <button id="plus">+1 min</button>
-  </div>
-
-  <div class="row">
-    <label class="grow">Splash text (optional)
-      <input id="splashText" type="text" maxlength="60" placeholder="Welcome">
-    </label>
-  </div>
-  <div class="row"><button id="splash">Show timer on display</button></div>
-
-  <button id="show" class="wide">Show on extension screen</button>
-  <p id="displayStatus" class="hint" style="margin-top: 10px">Display: not open</p>
-  <p id="msg" class="msg" role="status"></p>
-  <div class="row"><button id="closefs">Close display</button></div>
-
-  <div class="row">
-    <label class="grow">Phone remote PIN
-      <input id="remotePin" type="password" autocomplete="off" placeholder="PIN">
-    </label>
-    <button id="remoteConnect" style="align-self: flex-end">Connect</button>
-  </div>
-  <p id="remoteStatus" class="msg" role="status"></p>
-  <p class="hint">Space starts or pauses. R resets. Keep this window open while the display is showing.</p>
 </main>
 
 <script src="/preview.js"></script>
