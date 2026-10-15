@@ -12,7 +12,7 @@
 html, body { height: 100%; margin: 0; }
 body {
   display: flex; align-items: center; justify-content: center;
-  background: #000; color: #fff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #000; color: var(--c, #fff); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 /* Timer */
@@ -21,11 +21,22 @@ body {
   font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
 }
 #clock.long { font-size: min(20vw, 60vh); }
-body[data-state="warn"] { color: var(--warn); }
-body[data-state="danger"], body[data-state="done"] { color: var(--danger); }
-body[data-state="done"] #clock { animation: blink 1s steps(1) infinite; }
-@keyframes blink { 50% { opacity: .15; } }
-@media (prefers-reduced-motion: reduce) { body[data-state="done"] #clock { animation: none; } }
+#clock.neg { font-size: min(26vw, 70vh); } /* the minus sign needs room */
+#clock.neg.long { font-size: min(18vw, 60vh); }
+body[data-state="warn"] { --c: var(--warn); }
+body[data-state="danger"], body[data-state="done"] { --c: var(--danger); } /* stays red and steady while counting below zero */
+
+/* Half-time flash: the screen flashes white 3 times (0.6s each), then the timer carries on as normal. */
+body.flash { animation: half-flash .6s 3; }
+@keyframes half-flash {
+  0%, 49.9% { background: #fff; color: #000; }
+  50%, 100% { background: #000; color: var(--c, #fff); }
+}
+@media (prefers-reduced-motion: reduce) { /* no full-screen flashing: the clock dims instead */
+  body.flash { animation: none; }
+  body.flash #clock { animation: half-pulse 1.2s 3; }
+}
+@keyframes half-pulse { 50% { opacity: .15; } }
 
 /* Splash: slow drifting glows over a deep navy sky. Only transforms are animated, so it stays light on the GPU. */
 body[data-mode="splash"] #clock, body[data-mode="timer"] #splash { display: none; }
@@ -75,24 +86,19 @@ const splashText = document.getElementById("splashText");
 SplashText.attach(splashText);
 let state = { running: false, endAt: 0, remaining: 0, total: 0, splash: true, text: "" };
 
-const pad = n => String(n).padStart(2, "0");
-function fmt(ms) {
-  const t = Math.max(0, Math.ceil(ms / 1000));
-  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
-  return h ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
-}
+let prevMs = null; // the time at the last redraw, used to spot the half-time moment
 function draw() {
   document.body.dataset.mode = state.splash ? "splash" : "timer";
   const label = state.text || "";
   SplashText.set(splashText, label);
   document.documentElement.style.setProperty("--k", (state.size || 100) / 100);
-  if (state.splash) return;
-  const ms = state.running ? Math.max(0, state.endAt - Date.now()) : state.remaining;
+  if (state.splash) { prevMs = null; return; } // no flash for a moment nobody saw
+  const ms = state.running ? state.endAt - Date.now() : state.remaining; // goes below zero once the time is up
   const secs = Math.ceil(ms / 1000);
-  const text = fmt(ms);
-  clock.textContent = text;
-  clock.classList.toggle("long", text.length > 5);
+  TimerFmt.show(clock, ms);
   document.body.dataset.state = state.total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
+  if (HalfFlash.crossed(prevMs, ms, state.total, state.running)) HalfFlash.play(document.body);
+  prevMs = ms;
 }
 
 channel.onmessage = e => {

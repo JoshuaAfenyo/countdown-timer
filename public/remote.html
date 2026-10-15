@@ -98,30 +98,23 @@ let ws = null, authed = false, controllerOnline = false, denied = false;
 let state = null, localEnd = 0, backoff = 1000;
 let reconnectTimer, connectTimer, pingTimer, pongTimer;
 
-const pad = n => String(n).padStart(2, "0");
-function fmt(ms) {
-  const t = Math.max(0, Math.ceil(ms / 1000));
-  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
-  return h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
-}
 function setStatus(text, ok) { $("status").textContent = text; $("status").classList.toggle("ok", !!ok); }
 
 function render() {
   const live = authed && controllerOnline && state;
   document.querySelectorAll("#panel button:not(.linkbtn)").forEach(b => { b.disabled = !live; });
   if (!state) return;
-  const ms = state.running ? Math.max(0, localEnd - Date.now()) : state.remaining;
+  const ms = state.running ? localEnd - Date.now() : state.remaining; // goes below zero once the time is up
   const secs = Math.ceil(ms / 1000);
-  $("time").textContent = fmt(ms);
-  $("time").classList.toggle("long", fmt(ms).length > 5);
+  TimerFmt.show($("time"), ms);
   $("time").dataset.state = state.total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
-  $("toggle").textContent = state.running ? "Pause" : (state.remaining > 0 && state.remaining < state.total ? "Resume" : "Start");
+  $("toggle").textContent = state.running ? "Pause" : (state.remaining !== 0 && state.remaining < state.total ? "Resume" : "Start");
   $("splash").textContent = state.splash ? "Show timer" : "Show splash";
   $("mode").textContent = "Display is showing the " + (state.splash ? "splash" : "timer");
   $("displayInfo").textContent = { closed: "Display window: not open", window: "Display window: open, not on the extension screen yet",
     fullscreen: "Display window: showing on the extension screen" }[state.display || "closed"];
   $("sizeVal").textContent = (state.size || 100) + "%";
-  Preview.update({ splash: state.splash, text: state.text, ms, total: state.total, size: state.size });
+  Preview.update({ splash: state.splash, text: state.text, ms, total: state.total, size: state.size, running: state.running });
   if (document.activeElement !== $("text") && $("text").value !== state.text) $("text").value = state.text || "";
 }
 setInterval(render, 250);

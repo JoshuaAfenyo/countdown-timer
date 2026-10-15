@@ -126,13 +126,6 @@ const $ = id => document.getElementById(id);
 const channel = new BroadcastChannel("countdown-timer");
 let total = 0, remaining = 0, endAt = 0, running = false, wake = null, displayWin = null, splash = true;
 
-const pad = n => String(n).padStart(2, "0");
-function fmt(ms) {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-  return h ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
-}
-
 let textSize = 100; // splash text size in percent
 try { textSize = Math.min(300, Math.max(40, parseInt(localStorage.getItem("splashSize"), 10) || 100)); } catch (e) {}
 function setSize(p) {
@@ -175,19 +168,18 @@ function setFromInputs() {
 }
 
 function render() {
-  const ms = running ? Math.max(0, endAt - Date.now()) : remaining;
+  const ms = running ? endAt - Date.now() : remaining; // goes below zero once the time is up; the timer keeps running until paused or reset
   const secs = Math.ceil(ms / 1000);
-  $("preview").textContent = fmt(ms);
+  TimerFmt.show($("preview"), ms);
   updatePreview();
   $("preview").dataset.state = total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
-  $("toggle").textContent = running ? "Pause" : (remaining > 0 && remaining < total ? "Resume" : "Start");
-  if (running && ms <= 0) finish();
+  $("toggle").textContent = running ? "Pause" : (remaining !== 0 && remaining < total ? "Resume" : "Start");
 }
 
 function start() {
   if (running) return;
-  if (remaining <= 0) setFromInputs();
-  if (remaining <= 0) return;
+  if (remaining === 0) setFromInputs(); // exactly zero: start over from the set time. Below zero (paused overtime) resumes instead.
+  if (remaining === 0) return;
   endAt = Date.now() + remaining; // count to a fixed end time so background throttling cannot cause drift
   running = true;
   splash = false; syncSplash(); // starting the timer switches the display to the timer
@@ -195,12 +187,8 @@ function start() {
 }
 function pause() {
   if (!running) return;
-  remaining = Math.max(0, endAt - Date.now());
+  remaining = endAt - Date.now(); // may be negative
   running = false;
-  unlockScreen(); render(); broadcast();
-}
-function finish() {
-  running = false; remaining = 0;
   unlockScreen(); render(); broadcast();
 }
 function reset() {
@@ -209,9 +197,11 @@ function reset() {
   setFromInputs();
 }
 function adjust(deltaMs) {
-  if (running) endAt = Math.max(Date.now(), endAt + deltaMs);
-  else remaining = Math.max(0, remaining + deltaMs);
-  total = Math.max(total, running ? endAt - Date.now() : remaining);
+  const cur = running ? endAt - Date.now() : remaining;
+  // Taking time off never pushes a timer that still has time left below zero. Once it is below zero, it can go further.
+  const next = deltaMs < 0 && cur >= 0 ? Math.max(0, cur + deltaMs) : cur + deltaMs;
+  if (running) endAt = Date.now() + next; else remaining = next;
+  total = Math.max(total, next);
   render(); broadcast();
 }
 
@@ -282,7 +272,7 @@ $("splashText").addEventListener("input", () => {
 
 // ---- Preview of what the display shows ----
 function updatePreview() {
-  Preview.update({ splash, text: $("splashText").value.trim(), ms: running ? Math.max(0, endAt - Date.now()) : remaining, total, size: textSize });
+  Preview.update({ splash, text: $("splashText").value.trim(), ms: running ? endAt - Date.now() : remaining, total, size: textSize, running });
 }
 $("remoteUrl").textContent = location.origin + "/remote";
 $("copyUrl").onclick = () => {
