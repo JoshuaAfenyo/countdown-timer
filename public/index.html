@@ -319,7 +319,7 @@ function pushRemote() {
   if (!ws || ws.readyState !== 1 || !remoteReady) return;
   ws.send(JSON.stringify({
     type: "state", running, total, splash, size: textSize, display: displayState, text: $("splashText").value.trim(),
-    remaining: running ? Math.max(0, endAt - Date.now()) : remaining // time left now, so the phone's clock doesn't matter
+    remaining: running ? endAt - Date.now() : remaining // time left now (negative once the time is up), so the phone's clock doesn't matter
   }));
 }
 
