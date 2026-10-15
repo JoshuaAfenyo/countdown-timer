@@ -17,6 +17,7 @@ const TimerFmt = (() => {
       el.classList.toggle("long", s.split(":").length > 2);
       el.classList.toggle("neg", s[0] === "-");
     },
+<<<<<<< Updated upstream
   };
 })();
 
@@ -30,6 +31,39 @@ const HalfFlash = {
     void el.offsetWidth; // restarts the animation if one is already playing
     el.classList.add("flash");
     el._flashTimer = setTimeout(() => el.classList.remove("flash"), matchMedia("(prefers-reduced-motion: reduce)").matches ? 3800 : 1900);
+=======
+    // Colour stage, the same for every timer: "" (white), "amber" (last 3 min), "orange" (last minute) or "red" (zero and below).
+    state(ms, total) {
+      if (!(total > 0)) return "";
+      if (ms <= 0) return "red";
+      const secs = Math.ceil(ms / 1000);
+      return secs <= 60 ? "orange" : secs <= 180 ? "amber" : "";
+    },
+  };
+})();
+
+// Flash: the screen flashes when a running timer passes a mark: 2 times at 5 minutes left, 3 times at half of its set time,
+// 3 times at zero, and 5 times at every 5 minutes below zero (-05:00, -10:00 ...). The timer itself keeps running. Each screen compares its previous and current time, so the display,
+// the previews and the phone all work out the moment themselves.
+const Flash = {
+  // How many flashes this update calls for (0 for none). When two marks coincide, the larger count wins.
+  count(prev, cur, total, running) {
+    if (!running || prev == null) return 0;
+    const crossed = t => prev > t && cur <= t;
+    const over = ms => (ms <= -300000 ? Math.floor(-ms / 300000) : 0); // how many 5-minute marks below zero have passed
+    if (over(cur) > over(prev)) return 5;
+    if (crossed(0) || (total > 1000 && crossed(total / 2))) return 3;
+    return crossed(300000) ? 2 : 0;
+  },
+  play(el, n) {
+    clearTimeout(el._flashTimer);
+    el.classList.remove("flash");
+    el.style.setProperty("--n", n); // the CSS repeats the animation this many times
+    void el.offsetWidth; // restarts the animation if one is already playing
+    el.classList.add("flash");
+    const slow = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el._flashTimer = setTimeout(() => el.classList.remove("flash"), n * (slow ? 1200 : 600) + 100);
+>>>>>>> Stashed changes
   },
 };
 
@@ -81,9 +115,15 @@ const Preview = (() => {
       root.style.setProperty("--k", (size || 100) / 100);
       if (splash) { prev = null; return; } // no flash for a moment nobody saw
       TimerFmt.show(clockEl, ms);
+<<<<<<< Updated upstream
       const secs = Math.ceil(ms / 1000);
       root.dataset.state = total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
       if (HalfFlash.crossed(prev, ms, total, running)) HalfFlash.play(root);
+=======
+      root.dataset.state = TimerFmt.state(ms, total);
+      const flashes = Flash.count(prev, ms, total, running);
+      if (flashes) Flash.play(root, flashes);
+>>>>>>> Stashed changes
       prev = ms;
     },
   };

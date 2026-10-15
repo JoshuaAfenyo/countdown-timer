@@ -9,12 +9,16 @@
 <style>
 :root {
   --bg: #14181d; --panel: #1d232b; --line: #333c48; --text: #eef2f6; --muted: #9aa5b3;
-  --accent: #3fc1b0; --warn: #ffb020; --danger: #ff5a52;
+  --accent: #3fc1b0; --amber: #ffb020; --orange: #ff7a1a; --red: #ff5a52;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-body { margin: 0; min-height: 100vh; padding: 12px 14px 20px; background: var(--bg); color: var(--text); font-family: var(--font); touch-action: manipulation; }
-main { max-width: 480px; margin: 0 auto; }
+.bar {
+  padding: 9px 14px; text-align: center; font-size: .75rem; font-weight: 700; letter-spacing: .12em;
+  color: var(--accent); background: var(--panel); border-bottom: 1px solid var(--line);
+}
+body { margin: 0; min-height: 100vh; padding: 0 0 20px; background: var(--bg); color: var(--text); font-family: var(--font); touch-action: manipulation; }
+main { max-width: 480px; margin: 0 auto; padding: 12px 14px 0; }
 .status { margin: 0 0 10px; font-size: .9rem; color: var(--muted); }
 .status.ok { color: var(--accent); }
 .top { display: grid; grid-template-columns: 1.1fr 1fr; gap: 12px; align-items: center; margin-bottom: 6px; }
@@ -22,8 +26,9 @@ main { max-width: 480px; margin: 0 auto; }
 .time.long { font-size: clamp(1.9rem, 10vw, 3rem); }
 .mode { margin: 0; font-size: .8rem; color: var(--muted); }
 .side .pv-wrap { margin: 0 0 2px; }
-[data-state="warn"] { color: var(--warn); }
-[data-state="danger"], [data-state="done"] { color: var(--danger); }
+[data-state="amber"] { color: var(--amber); }
+[data-state="orange"] { color: var(--orange); }
+[data-state="red"] { color: var(--red); }
 .grid { display: grid; gap: 8px; margin-bottom: 8px; }
 .g2 { grid-template-columns: 1fr 1fr; }
 .g3 { grid-template-columns: 1fr 1fr 1fr; }
@@ -44,6 +49,7 @@ details input { margin-bottom: 8px; }
 </style>
 </head>
 <body>
+<header class="bar">ICGC-JOY TEMPLE: AUDIO VISUALS</header>
 <main>
   <p id="status" class="status" role="status">Connecting…</p>
 
@@ -72,9 +78,10 @@ details input { margin-bottom: 8px; }
       <button id="reset">Reset</button>
       <button id="splash">Show splash</button>
     </div>
-    <div class="grid g2">
+    <div class="grid g3">
       <button id="minus">−1 min</button>
       <button id="plus">+1 min</button>
+      <button id="plus5">+5 min</button>
     </div>
     <div class="grid g3" id="presets"></div>
 
@@ -105,9 +112,14 @@ function render() {
   document.querySelectorAll("#panel button:not(.linkbtn)").forEach(b => { b.disabled = !live; });
   if (!state) return;
   const ms = state.running ? localEnd - Date.now() : state.remaining; // goes below zero once the time is up
+<<<<<<< Updated upstream
   const secs = Math.ceil(ms / 1000);
   TimerFmt.show($("time"), ms);
   $("time").dataset.state = state.total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
+=======
+  TimerFmt.show($("time"), ms);
+  $("time").dataset.state = TimerFmt.state(ms, state.total);
+>>>>>>> Stashed changes
   $("toggle").textContent = state.running ? "Pause" : (state.remaining !== 0 && state.remaining < state.total ? "Resume" : "Start");
   $("splash").textContent = state.splash ? "Show timer" : "Show splash";
   $("mode").textContent = "Display is showing the " + (state.splash ? "splash" : "timer");
@@ -192,7 +204,7 @@ function cmd(name, extra) {
   if (ws && ws.readyState === 1 && authed) { ws.send(JSON.stringify({ type: "cmd", cmd: name, ...extra })); navigator.vibrate?.(15); }
 }
 
-[1, 2, 5, 10, 15, 30].forEach(n => {
+[5, 10, 15, 25, 30].forEach(n => {
   const b = document.createElement("button");
   b.textContent = n + " min";
   b.onclick = () => cmd("preset", { minutes: n });
@@ -202,6 +214,7 @@ $("toggle").onclick = () => cmd("toggle");
 $("reset").onclick = () => cmd("reset");
 $("minus").onclick = () => cmd("adjust", { delta: -60000 });
 $("plus").onclick = () => cmd("adjust", { delta: 60000 });
+$("plus5").onclick = () => cmd("adjust", { delta: 300000 });
 $("splash").onclick = () => cmd("splash", { on: !(state && state.splash) });
 $("sizeMinus").onclick = () => cmd("size", { delta: -10 });
 $("sizePlus").onclick = () => cmd("size", { delta: 10 });

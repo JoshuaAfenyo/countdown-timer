@@ -16,14 +16,19 @@ if (matchMedia("(pointer: coarse) and (max-width: 700px)").matches && !location.
 <style>
 :root {
   --bg: #14181d; --panel: #1d232b; --line: #333c48; --text: #eef2f6; --muted: #9aa5b3;
-  --accent: #3fc1b0; --warn: #ffb020; --danger: #ff5a52;
+  --accent: #3fc1b0; --amber: #ffb020; --orange: #ff7a1a; --red: #ff5a52;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 * { box-sizing: border-box; }
 body {
-  margin: 0; min-height: 100vh; padding: 24px; display: grid; place-items: center;
+  margin: 0; min-height: 100vh; display: flex; flex-direction: column;
   background: var(--bg); color: var(--text); font-family: var(--font);
 }
+.bar {
+  padding: 10px 24px; text-align: center; font-size: .8rem; font-weight: 700; letter-spacing: .14em;
+  color: var(--accent); background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.wrap { flex: 1; padding: 24px; display: grid; place-items: center; }
 .card { width: min(900px, 100%); padding: 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
 h1 { margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--muted); }
 .preview {
@@ -31,6 +36,12 @@ h1 { margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--muted); 
   font-variant-numeric: tabular-nums; letter-spacing: -0.02em; margin-bottom: 20px;
 }
 .row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+/* Button groups that share the row width equally, so nothing wraps onto its own line. */
+.row.grid2, .row.grid3, .row.grid5 { display: grid; }
+.grid2 { grid-template-columns: repeat(2, 1fr); }
+.grid3 { grid-template-columns: repeat(3, 1fr); }
+.grid5 { grid-template-columns: repeat(5, 1fr); }
+.grid2 button, .grid3 button, .grid5 button { min-width: 0; padding-inline: 6px; }
 label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); }
 input {
   width: 100px; padding: 10px; font: inherit; font-size: 1.1rem; color: var(--text);
@@ -48,8 +59,9 @@ button.wide { width: 100%; padding: 14px; border-color: var(--accent); color: va
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .msg { min-height: 2.6em; margin: 4px 0 0; font-size: .9rem; color: var(--muted); }
 .hint { margin: 0; font-size: .8rem; color: var(--muted); }
-[data-state="warn"] { color: var(--warn); }
-[data-state="danger"], [data-state="done"] { color: var(--danger); }
+[data-state="amber"] { color: var(--amber); }
+[data-state="orange"] { color: var(--orange); }
+[data-state="red"] { color: var(--red); }
 button.linkbtn { min-height: 0; padding: 4px 10px; border: none; background: none; color: var(--muted); text-decoration: underline; font-weight: 400; }
 .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
 .col { min-width: 0; }
@@ -58,6 +70,8 @@ button.linkbtn { min-height: 0; padding: 4px 10px; border: none; background: non
 </head>
 <body>
 
+<header class="bar">ICGC-JOY TEMPLE: AUDIO VISUALS</header>
+<div class="wrap">
 <main class="card">
   <h1>Countdown timer</h1>
   <div class="cols">
@@ -69,20 +83,22 @@ button.linkbtn { min-height: 0; padding: 4px 10px; border: none; background: non
         <label>Seconds <input id="sec" type="number" min="0" max="59" value="0" inputmode="numeric"></label>
       </div>
 
-      <div class="row" id="presets">
-        <button data-min="1">1 min</button>
-        <button data-min="2">2 min</button>
+      <div class="row grid5" id="presets">
         <button data-min="5">5 min</button>
         <button data-min="10">10 min</button>
         <button data-min="15">15 min</button>
+        <button data-min="25">25 min</button>
         <button data-min="30">30 min</button>
       </div>
 
-      <div class="row">
+      <div class="row grid2">
         <button id="toggle" class="primary">Start</button>
         <button id="reset">Reset</button>
+      </div>
+      <div class="row grid3">
         <button id="minus">−1 min</button>
         <button id="plus">+1 min</button>
+        <button id="plus5">+5 min</button>
       </div>
 
       <div class="row">
@@ -119,6 +135,7 @@ button.linkbtn { min-height: 0; padding: 4px 10px; border: none; background: non
     </div>
   </div>
 </main>
+</div>
 
 <script src="/preview.js"></script>
 <script>
@@ -169,10 +186,16 @@ function setFromInputs() {
 
 function render() {
   const ms = running ? endAt - Date.now() : remaining; // goes below zero once the time is up; the timer keeps running until paused or reset
+<<<<<<< Updated upstream
   const secs = Math.ceil(ms / 1000);
   TimerFmt.show($("preview"), ms);
   updatePreview();
   $("preview").dataset.state = total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
+=======
+  TimerFmt.show($("preview"), ms);
+  updatePreview();
+  $("preview").dataset.state = TimerFmt.state(ms, total);
+>>>>>>> Stashed changes
   $("toggle").textContent = running ? "Pause" : (remaining !== 0 && remaining < total ? "Resume" : "Start");
 }
 
@@ -244,6 +267,7 @@ $("toggle").onclick = () => (running ? pause() : start());
 $("reset").onclick = reset;
 $("minus").onclick = () => adjust(-60000);
 $("plus").onclick = () => adjust(60000);
+$("plus5").onclick = () => adjust(300000);
 $("show").onclick = showOnExtension;
 $("closefs").onclick = () => channel.postMessage("close-display");
 $("presets").onclick = e => {

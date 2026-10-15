@@ -6,7 +6,7 @@
 <title>Countdown display</title>
 <link rel="stylesheet" href="/preview.css">
 <style>
-:root { --warn: #ffb020; --danger: #ff5a52; --slow: 1; }
+:root { --amber: #ffb020; --orange: #ff7a1a; --red: #ff5a52; --slow: 1; }
 @media (prefers-reduced-motion: reduce) { :root { --slow: 3; } } /* slower, not frozen */
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
@@ -23,18 +23,32 @@ body {
 #clock.long { font-size: min(20vw, 60vh); }
 #clock.neg { font-size: min(26vw, 70vh); } /* the minus sign needs room */
 #clock.neg.long { font-size: min(18vw, 60vh); }
+<<<<<<< Updated upstream
 body[data-state="warn"] { --c: var(--warn); }
 body[data-state="danger"], body[data-state="done"] { --c: var(--danger); } /* stays red and steady while counting below zero */
 
 /* Half-time flash: the screen flashes white 3 times (0.6s each), then the timer carries on as normal. */
 body.flash { animation: half-flash .6s 3; }
+=======
+body[data-state="amber"] { --c: var(--amber); }
+body[data-state="orange"] { --c: var(--orange); } /* the last minute */
+body[data-state="red"] { --c: var(--red); } /* zero and below, steady */
+
+/* Flash (2 times at 5 minutes left, 3 times at half time and at zero, 5 times every 5 minutes below zero): the screen flashes white, 0.6s each, then the timer carries on as normal.
+   --n, the number of flashes, is set from the script. */
+body.flash { animation: half-flash .6s var(--n, 3); }
+>>>>>>> Stashed changes
 @keyframes half-flash {
   0%, 49.9% { background: #fff; color: #000; }
   50%, 100% { background: #000; color: var(--c, #fff); }
 }
 @media (prefers-reduced-motion: reduce) { /* no full-screen flashing: the clock dims instead */
   body.flash { animation: none; }
+<<<<<<< Updated upstream
   body.flash #clock { animation: half-pulse 1.2s 3; }
+=======
+  body.flash #clock { animation: half-pulse 1.2s var(--n, 3); }
+>>>>>>> Stashed changes
 }
 @keyframes half-pulse { 50% { opacity: .15; } }
 
@@ -94,10 +108,17 @@ function draw() {
   document.documentElement.style.setProperty("--k", (state.size || 100) / 100);
   if (state.splash) { prevMs = null; return; } // no flash for a moment nobody saw
   const ms = state.running ? state.endAt - Date.now() : state.remaining; // goes below zero once the time is up
+<<<<<<< Updated upstream
   const secs = Math.ceil(ms / 1000);
   TimerFmt.show(clock, ms);
   document.body.dataset.state = state.total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
   if (HalfFlash.crossed(prevMs, ms, state.total, state.running)) HalfFlash.play(document.body);
+=======
+  TimerFmt.show(clock, ms);
+  document.body.dataset.state = TimerFmt.state(ms, state.total);
+  const flashes = Flash.count(prevMs, ms, state.total, state.running);
+  if (flashes) Flash.play(document.body, flashes);
+>>>>>>> Stashed changes
   prevMs = ms;
 }
 
