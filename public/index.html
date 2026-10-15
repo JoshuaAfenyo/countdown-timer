@@ -186,16 +186,9 @@ function setFromInputs() {
 
 function render() {
   const ms = running ? endAt - Date.now() : remaining; // goes below zero once the time is up; the timer keeps running until paused or reset
-<<<<<<< Updated upstream
-  const secs = Math.ceil(ms / 1000);
-  TimerFmt.show($("preview"), ms);
-  updatePreview();
-  $("preview").dataset.state = total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
-=======
   TimerFmt.show($("preview"), ms);
   updatePreview();
   $("preview").dataset.state = TimerFmt.state(ms, total);
->>>>>>> Stashed changes
   $("toggle").textContent = running ? "Pause" : (remaining !== 0 && remaining < total ? "Resume" : "Start");
 }
 

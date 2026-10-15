@@ -17,21 +17,6 @@ const TimerFmt = (() => {
       el.classList.toggle("long", s.split(":").length > 2);
       el.classList.toggle("neg", s[0] === "-");
     },
-<<<<<<< Updated upstream
-  };
-})();
-
-// HalfFlash: a running timer that counts down past half of its set time flashes 3 times. The timer itself keeps running.
-// Each screen compares its previous and current time, so the display, the previews and the phone all work out the moment themselves.
-const HalfFlash = {
-  crossed: (prev, cur, total, running) => running && total > 1000 && prev != null && prev > total / 2 && cur <= total / 2,
-  play(el) {
-    clearTimeout(el._flashTimer);
-    el.classList.remove("flash");
-    void el.offsetWidth; // restarts the animation if one is already playing
-    el.classList.add("flash");
-    el._flashTimer = setTimeout(() => el.classList.remove("flash"), matchMedia("(prefers-reduced-motion: reduce)").matches ? 3800 : 1900);
-=======
     // Colour stage, the same for every timer: "" (white), "amber" (last 3 min), "orange" (last minute) or "red" (zero and below).
     state(ms, total) {
       if (!(total > 0)) return "";
@@ -63,7 +48,6 @@ const Flash = {
     el.classList.add("flash");
     const slow = matchMedia("(prefers-reduced-motion: reduce)").matches;
     el._flashTimer = setTimeout(() => el.classList.remove("flash"), n * (slow ? 1200 : 600) + 100);
->>>>>>> Stashed changes
   },
 };
 
@@ -115,15 +99,9 @@ const Preview = (() => {
       root.style.setProperty("--k", (size || 100) / 100);
       if (splash) { prev = null; return; } // no flash for a moment nobody saw
       TimerFmt.show(clockEl, ms);
-<<<<<<< Updated upstream
-      const secs = Math.ceil(ms / 1000);
-      root.dataset.state = total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
-      if (HalfFlash.crossed(prev, ms, total, running)) HalfFlash.play(root);
-=======
       root.dataset.state = TimerFmt.state(ms, total);
       const flashes = Flash.count(prev, ms, total, running);
       if (flashes) Flash.play(root, flashes);
->>>>>>> Stashed changes
       prev = ms;
     },
   };

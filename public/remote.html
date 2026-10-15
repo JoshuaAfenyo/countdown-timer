@@ -112,14 +112,8 @@ function render() {
   document.querySelectorAll("#panel button:not(.linkbtn)").forEach(b => { b.disabled = !live; });
   if (!state) return;
   const ms = state.running ? localEnd - Date.now() : state.remaining; // goes below zero once the time is up
-<<<<<<< Updated upstream
-  const secs = Math.ceil(ms / 1000);
-  TimerFmt.show($("time"), ms);
-  $("time").dataset.state = state.total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
-=======
   TimerFmt.show($("time"), ms);
   $("time").dataset.state = TimerFmt.state(ms, state.total);
->>>>>>> Stashed changes
   $("toggle").textContent = state.running ? "Pause" : (state.remaining !== 0 && state.remaining < state.total ? "Resume" : "Start");
   $("splash").textContent = state.splash ? "Show timer" : "Show splash";
   $("mode").textContent = "Display is showing the " + (state.splash ? "splash" : "timer");
