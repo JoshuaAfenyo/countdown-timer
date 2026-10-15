@@ -1,4 +1,38 @@
-// Shared by the display and the previews.
+// Shared by the display, the control page, the phone remote and the previews.
+
+// TimerFmt: shows a time in ms as MM:SS (or H:MM:SS). Below zero it keeps going as negative time ("-00:05").
+const TimerFmt = (() => {
+  const pad = n => String(n).padStart(2, "0");
+  const text = ms => {
+    const t = Math.ceil(ms / 1000), a = Math.abs(t); // rounds up while counting down, so 00:00 lasts one second and then -00:01 follows
+    const h = Math.floor(a / 3600), m = Math.floor((a % 3600) / 60), s = a % 60;
+    return (t < 0 ? "-" : "") + (h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`);
+  };
+  return {
+    text,
+    // Writes the time into el and sets the "long" (hours shown) and "neg" (below zero) classes so the CSS can size the text to fit.
+    show(el, ms) {
+      const s = text(ms);
+      el.textContent = s;
+      el.classList.toggle("long", s.split(":").length > 2);
+      el.classList.toggle("neg", s[0] === "-");
+    },
+  };
+})();
+
+// HalfFlash: a running timer that counts down past half of its set time flashes 3 times. The timer itself keeps running.
+// Each screen compares its previous and current time, so the display, the previews and the phone all work out the moment themselves.
+const HalfFlash = {
+  crossed: (prev, cur, total, running) => running && total > 1000 && prev != null && prev > total / 2 && cur <= total / 2,
+  play(el) {
+    clearTimeout(el._flashTimer);
+    el.classList.remove("flash");
+    void el.offsetWidth; // restarts the animation if one is already playing
+    el.classList.add("flash");
+    el._flashTimer = setTimeout(() => el.classList.remove("flash"), matchMedia("(prefers-reduced-motion: reduce)").matches ? 3800 : 1900);
+  },
+};
+
 // SplashText: one line of text that sits centered if it fits, and scrolls in a seamless loop if it is wider than its box.
 const SplashText = (() => {
   const item = (text, clone) => {
@@ -24,15 +58,9 @@ const SplashText = (() => {
   };
 })();
 
-// Draws the miniature display. Call Preview.mount(element) once, then Preview.update({ splash, text, ms, total }).
+// Draws the miniature display. Call Preview.mount(element) once, then Preview.update({ splash, text, ms, total, running }).
 const Preview = (() => {
-  let box, root, textEl, clockEl, on = true;
-  const pad = n => String(n).padStart(2, "0");
-  function fmt(ms) {
-    const t = Math.max(0, Math.ceil(ms / 1000));
-    const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
-    return h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
-  }
+  let box, root, textEl, clockEl, on = true, prev = null; // prev: the time at the last update, used to spot the half-time moment
   return {
     mount(el) {
       box = el;
@@ -44,18 +72,19 @@ const Preview = (() => {
       SplashText.attach(textEl);
       clockEl = root.querySelector(".pv-clock");
     },
-    setOn(value) { on = value; box.hidden = !value; }, // hidden = animations stop, saving battery
-    update({ splash, text, ms, total, size }) {
+    setOn(value) { on = value; box.hidden = !value; prev = null; }, // hidden = animations stop, saving battery
+    update({ splash, text, ms, total, size, running }) {
       if (!on || !root) return;
       root.dataset.mode = splash ? "splash" : "timer";
       const label = text || "";
       SplashText.set(textEl, label);
       root.style.setProperty("--k", (size || 100) / 100);
-      if (splash) return;
-      const s = fmt(ms), secs = Math.ceil(ms / 1000);
-      clockEl.textContent = s;
-      clockEl.classList.toggle("long", s.length > 5);
+      if (splash) { prev = null; return; } // no flash for a moment nobody saw
+      TimerFmt.show(clockEl, ms);
+      const secs = Math.ceil(ms / 1000);
       root.dataset.state = total <= 0 ? "" : ms <= 0 ? "done" : secs <= 10 ? "danger" : secs <= 60 ? "warn" : "";
+      if (HalfFlash.crossed(prev, ms, total, running)) HalfFlash.play(root);
+      prev = ms;
     },
   };
 })();
