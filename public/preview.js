@@ -51,6 +51,29 @@ const Flash = {
   },
 };
 
+// Segments: the parts of the programme, as one-tap buttons on the control page and the phone remote.
+// To rename a part or change its length, edit this list. Both pages pick it up.
+const Segments = {
+  list: [
+    { name: "Opening Prayer", min: 10 },
+    { name: "Praise and Worship", min: 25 },
+    { name: "Song Ministration", min: 10 },
+    { name: "Preaching", min: 30 },
+  ],
+  // Fills `box` with one button per segment. pick(minutes) runs when one is pressed.
+  render(box, pick) {
+    this.list.forEach(s => {
+      const b = document.createElement("button");
+      b.append(s.name);
+      const len = document.createElement("small");
+      len.textContent = s.min + " min";
+      b.append(len);
+      b.onclick = () => pick(s.min);
+      box.appendChild(b);
+    });
+  },
+};
+
 // SplashText: one line of text that sits centered if it fits, and scrolls in a seamless loop if it is wider than its box.
 const SplashText = (() => {
   const item = (text, clone) => {
@@ -83,7 +106,7 @@ const Preview = (() => {
     mount(el) {
       box = el;
       box.innerHTML = '<div class="pv" data-mode="splash" data-state="" aria-hidden="true">' +
-        '<div class="pv-splash"><i class="pv-glow g1"></i><i class="pv-glow g2"></i><i class="pv-glow g3"></i><i class="pv-glow g4"></i><div class="pv-text st"><div class="st-track"><span class="st-item"></span></div></div></div>' +
+        '<div class="pv-splash"><img class="pv-logo" src="/splash-logo.png" alt=""><div class="pv-text st"><div class="st-track"><span class="st-item"></span></div></div></div>' +
         '<div class="pv-clock">00:00</div></div>';
       root = box.firstElementChild;
       textEl = root.querySelector(".pv-text");

@@ -32,6 +32,8 @@ main { max-width: 480px; margin: 0 auto; padding: 12px 14px 0; }
 .grid { display: grid; gap: 8px; margin-bottom: 8px; }
 .g2 { grid-template-columns: 1fr 1fr; }
 .g3 { grid-template-columns: 1fr 1fr 1fr; }
+.g4 { grid-template-columns: repeat(4, 1fr); }
+#segments button small { display: block; margin-top: 2px; font-size: .75rem; font-weight: 400; color: var(--muted); }
 button, input { font: inherit; color: var(--text); border-radius: 12px; border: 1px solid var(--line); background: var(--panel); }
 button { min-height: 50px; padding: 8px; font-weight: 600; cursor: pointer; }
 button:active { border-color: var(--muted); }
@@ -78,12 +80,14 @@ details input { margin-bottom: 8px; }
       <button id="reset">Reset</button>
       <button id="splash">Show splash</button>
     </div>
-    <div class="grid g3">
+    <div class="grid g4">
+      <button id="minus5">−5 min</button>
       <button id="minus">−1 min</button>
       <button id="plus">+1 min</button>
       <button id="plus5">+5 min</button>
     </div>
     <div class="grid g3" id="presets"></div>
+    <div class="grid g2" id="segments"></div>
 
     <details>
       <summary>Splash text</summary>
@@ -204,8 +208,10 @@ function cmd(name, extra) {
   b.onclick = () => cmd("preset", { minutes: n });
   $("presets").appendChild(b);
 });
+Segments.render($("segments"), m => cmd("preset", { minutes: m }));
 $("toggle").onclick = () => cmd("toggle");
 $("reset").onclick = () => cmd("reset");
+$("minus5").onclick = () => cmd("adjust", { delta: -300000 });
 $("minus").onclick = () => cmd("adjust", { delta: -60000 });
 $("plus").onclick = () => cmd("adjust", { delta: 60000 });
 $("plus5").onclick = () => cmd("adjust", { delta: 300000 });

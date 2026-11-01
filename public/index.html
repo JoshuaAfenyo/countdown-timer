@@ -37,11 +37,14 @@ h1 { margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--muted); 
 }
 .row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
 /* Button groups that share the row width equally, so nothing wraps onto its own line. */
-.row.grid2, .row.grid3, .row.grid5 { display: grid; }
+.row.grid2, .row.grid3, .row.grid4, .row.grid5 { display: grid; }
 .grid2 { grid-template-columns: repeat(2, 1fr); }
 .grid3 { grid-template-columns: repeat(3, 1fr); }
+.grid4 { grid-template-columns: repeat(4, 1fr); }
 .grid5 { grid-template-columns: repeat(5, 1fr); }
-.grid2 button, .grid3 button, .grid5 button { min-width: 0; padding-inline: 6px; }
+.grid2 button, .grid3 button, .grid4 button, .grid5 button { min-width: 0; padding-inline: 6px; }
+/* Programme buttons: the part's name, with its length underneath. */
+#segments button small { display: block; margin-top: 2px; font-size: .75rem; font-weight: 400; color: var(--muted); }
 label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); }
 input {
   width: 100px; padding: 10px; font: inherit; font-size: 1.1rem; color: var(--text);
@@ -90,12 +93,14 @@ button.linkbtn { min-height: 0; padding: 4px 10px; border: none; background: non
         <button data-min="25">25 min</button>
         <button data-min="30">30 min</button>
       </div>
+      <div class="row grid2" id="segments"></div>
 
       <div class="row grid2">
         <button id="toggle" class="primary">Start</button>
         <button id="reset">Reset</button>
       </div>
-      <div class="row grid3">
+      <div class="row grid4">
+        <button id="minus5">−5 min</button>
         <button id="minus">−1 min</button>
         <button id="plus">+1 min</button>
         <button id="plus5">+5 min</button>
@@ -258,6 +263,7 @@ async function showOnExtension() {
 
 $("toggle").onclick = () => (running ? pause() : start());
 $("reset").onclick = reset;
+$("minus5").onclick = () => adjust(-300000);
 $("minus").onclick = () => adjust(-60000);
 $("plus").onclick = () => adjust(60000);
 $("plus5").onclick = () => adjust(300000);
@@ -269,6 +275,7 @@ $("presets").onclick = e => {
   $("min").value = m; $("sec").value = 0;
   reset();
 };
+Segments.render($("segments"), m => { $("min").value = m; $("sec").value = 0; reset(); });
 ["min", "sec"].forEach(id => $(id).addEventListener("input", () => { if (!running) setFromInputs(); }));
 document.addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT") return;

@@ -1,8 +1,8 @@
 // Offline support. Online: pages load fresh from the network (and the saved copy is refreshed).
 // Offline or slow: the saved copy loads instead.
 // Change CACHE only when you add or rename files in PRECACHE. Edits to existing files are picked up automatically.
-const CACHE = "countdown-timer-v2";
-const PRECACHE = ["/", "/display", "/manifest.json", "/icon-192.png", "/icon-512.png", "/preview.css", "/preview.js"];
+const CACHE = "countdown-timer-v3";
+const PRECACHE = ["/", "/display", "/manifest.json", "/icon-192.png", "/icon-512.png", "/preview.css", "/preview.js", "/splash-logo.png"];
 const NETWORK_TIMEOUT_MS = 3000;
 
 self.addEventListener("install", e => {

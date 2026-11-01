@@ -6,8 +6,7 @@
 <title>Countdown display</title>
 <link rel="stylesheet" href="/preview.css">
 <style>
-:root { --amber: #ffb020; --orange: #ff7a1a; --red: #ff5a52; --slow: 1; }
-@media (prefers-reduced-motion: reduce) { :root { --slow: 3; } } /* slower, not frozen */
+:root { --amber: #ffb020; --orange: #ff7a1a; --red: #ff5a52; }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body {
@@ -40,32 +39,24 @@ body.flash { animation: half-flash .6s var(--n, 3); }
 }
 @keyframes half-pulse { 50% { opacity: .15; } }
 
-/* Splash: slow drifting glows over a deep navy sky. Only transforms are animated, so it stays light on the GPU. */
+/* Splash: the church logo, centered on white (the logo's own background), with optional text underneath. Nothing animates except the text fade-in and long-text scrolling. */
 body[data-mode="splash"] #clock, body[data-mode="timer"] #splash { display: none; }
 #splash {
-  position: fixed; inset: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(165deg, #060a15 0%, #0c1a2d 100%);
+  position: fixed; inset: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2vh; background: #fff;
 }
-.glow { position: absolute; width: 85vmax; height: 85vmax; border-radius: 50%; will-change: transform; }
-.g1 { left: -30vmax; top: -35vmax; background: radial-gradient(circle, rgba(236,184,108,.50) 0%, transparent 62%);
-      animation: drift-a calc(43s * var(--slow)) ease-in-out infinite alternate; }
-.g2 { right: -35vmax; bottom: -40vmax; background: radial-gradient(circle, rgba(40,150,160,.50) 0%, transparent 62%);
-      animation: drift-b calc(59s * var(--slow)) ease-in-out infinite alternate; }
-.g3 { left: 15vmax; bottom: -55vmax; background: radial-gradient(circle, rgba(150,92,172,.38) 0%, transparent 62%);
-      animation: drift-c calc(71s * var(--slow)) ease-in-out infinite alternate; }
-.g4 { width: 50vmax; height: 50vmax; right: 5vmax; top: -25vmax; background: radial-gradient(circle, rgba(255,222,176,.28) 0%, transparent 65%);
-      animation: drift-d calc(31s * var(--slow)) ease-in-out infinite alternate; }
-@keyframes drift-a { to { transform: translate(60vmax, 45vmax) scale(1.2); } }
-@keyframes drift-b { to { transform: translate(-55vmax, -50vmax) scale(1.3); } }
-@keyframes drift-c { to { transform: translate(40vmax, -60vmax) scale(.85); } }
-@keyframes drift-d { to { transform: translate(-45vmax, 55vmax) scale(1.35); } }
+#splashLogo { display: block; flex: 0 1 auto; min-height: 0; height: min(66vh, 66vw); aspect-ratio: 1; max-width: 100%; object-fit: contain; }
 #splashText {
-  position: relative; color: #fff; font-size: calc(min(9vw, 14vh) * var(--k, 1)); font-weight: 700; letter-spacing: .02em; line-height: 1.15;
-  text-shadow: 0 0 40px rgba(0, 0, 0, .35); animation: rise 2.4s ease-out both;
+  position: relative; flex: none; color: #115638; font-size: calc(min(8vw, 13vh) * var(--k, 1)); font-weight: 700; letter-spacing: .02em; line-height: 1.15;
+  animation: rise 2.4s ease-out both;
 }
+#splashText[data-text=""] { display: none; } /* no text, no gap: the logo stays centered */
+#splash:has(#splashText:not([data-text=""])) { gap: 3vh; }
+#splash:has(#splashText:not([data-text=""])) #splashLogo { height: min(16vh, 16vw); } /* small logo when text is showing */
 @keyframes rise { from { opacity: 0; transform: translateY(1.5vh); } }
 
 #hint { position: fixed; bottom: 4vh; left: 0; right: 0; margin: 0; text-align: center; font-size: 1rem; color: #8a93a0; }
+body[data-mode="splash"] #hint { color: #5b6470; }
 body.fs { cursor: none; }
 body.fs #hint { display: none; }
 </style>
@@ -73,7 +64,7 @@ body.fs #hint { display: none; }
 <body data-state="" data-mode="splash">
 
 <div id="splash" aria-hidden="true">
-  <i class="glow g1"></i><i class="glow g2"></i><i class="glow g3"></i><i class="glow g4"></i>
+  <img id="splashLogo" src="/splash-logo.png" alt="">
   <div id="splashText" class="st"><div class="st-track"><span class="st-item"></span></div></div>
 </div>
 <div id="clock">00:00</div>
